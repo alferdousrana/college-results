@@ -5,8 +5,8 @@
   "type": "module",
   "description": "Mobile-first, offline-capable result management for Bangladeshi schools and colleges (Phase 1 foundation).",
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
+    "dev": "node api.js && vite",
+    "build": "node api.js && vite build",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
