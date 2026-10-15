@@ -1,0 +1,30 @@
+.app { min-height: 100dvh; display: flex; flex-direction: column; }
+.topbar { position: sticky; top: 0; z-index: 10; display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-4); padding-top: max(var(--space-2), env(safe-area-inset-top)); background: var(--c-surface); border-bottom: 1px solid var(--c-line); }
+.brand { display: flex; align-items: center; gap: var(--space-2); font-weight: 600; color: var(--c-ink); text-decoration: none; margin-right: auto; }
+.topbar__user { display: flex; align-items: center; gap: var(--space-2); }
+.topbar__name { display: none; color: var(--c-ink-2); }
+.app__body { flex: 1; display: flex; }
+.sidebar { display: none; }
+.main { flex: 1; min-width: 0; padding: var(--space-4); padding-bottom: calc(80px + env(safe-area-inset-bottom)); outline: none; }
+.app--no-sidebar .main { padding-bottom: var(--space-6); }
+.page { max-width: 1100px; margin: 0 auto; }
+.page--narrow { max-width: 560px; }
+.page--wide { max-width: none; }
+
+.tabbar { position: fixed; inset: auto 0 0 0; z-index: 10; display: flex; background: var(--c-surface); border-top: 1px solid var(--c-line); padding-bottom: env(safe-area-inset-bottom); }
+.tabbar .navlink { flex: 1; flex-direction: column; gap: 2px; min-height: 56px; justify-content: center; font-size: 0.75rem; border-radius: 0; }
+
+.navlink { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); min-height: var(--tap); color: var(--c-ink-2); text-decoration: none; border-radius: var(--radius-s); }
+.navlink:hover { color: var(--c-ink); background: var(--c-bg); }
+.navlink.is-active { color: var(--c-brand); font-weight: 600; }
+.sidebar .navlink.is-active { background: var(--c-brand-soft); }
+
+@media (min-width: 600px) { .topbar__name { display: inline; } }
+@media (min-width: 960px) {
+  .tabbar { display: none; }
+  .sidebar { display: flex; flex-direction: column; gap: var(--space-1); width: 232px; padding: var(--space-4) var(--space-3); border-right: 1px solid var(--c-line); background: var(--c-surface); position: sticky; top: 57px; height: calc(100dvh - 57px); }
+  .app--no-sidebar .sidebar { display: none; }
+  .main { padding: var(--space-6); }
+}
+.brand span, .topbar .btn { white-space: nowrap; }
+@media (max-width: 380px) { .brand span { font-size: var(--step--1); } }

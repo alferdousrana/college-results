@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Feature control — College Results (developer)</title>
+<style>
+  :root { --ink:#1B2421; --muted:#5B6B65; --line:#D6DFDA; --bg:#F5F7F6; --on:#0E6B57; --off:#9A3412; --bad:#B42318; }
+  body { margin:0; font:15px/1.5 system-ui, sans-serif; color:var(--ink); background:var(--bg); }
+  main { max-width: 860px; margin: 0 auto; padding: 24px 16px 64px; }
+  h1 { font-size: 1.4rem; margin: 0 0 4px; } h2 { font-size: 1.1rem; margin: 28px 0 8px; }
+  p { color: var(--muted); max-width: 70ch; }
+  table { width:100%; border-collapse: collapse; background:#fff; border:1px solid var(--line); }
+  th, td { text-align:left; padding:10px 12px; border-bottom:1px solid var(--line); vertical-align: top; }
+  .on { color: var(--on); font-weight:600 } .off { color: var(--off); font-weight:600 } .bad { color: var(--bad); font-weight:600 }
+  button, a.button { display:inline-block; padding:6px 12px; border:1px solid var(--ink); border-radius:6px; color:var(--ink); background:#fff; text-decoration:none; cursor:pointer; font:inherit; }
+  .notice { background:#fff; border-left:4px solid var(--on); padding:12px 16px; margin: 16px 0; }
+  label { display:block; margin: 12px 0 4px; font-weight:600 } input, select, textarea { width:100%; padding:8px; box-sizing:border-box; font:inherit }
+  .panel { background:#fff; border:1px solid var(--line); padding: 12px 16px; margin-top: 8px; }
+  code { background:#eef2f0; padding: 1px 4px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Feature control</h1>
+  <p>This page is read-only and contains no tokens. Changes are made by the protected <strong>Feature control</strong> GitHub Actions workflow,
+     which only repository collaborators can run and which (when the <code>feature-control</code> environment requires approval) the developer must approve.</p>
+  <div class="notice">Pick a feature, choose the new state and optional upgrade text below, then press <strong>Open workflow on GitHub</strong>.
+     GitHub shows a “Run workflow” form: copy the prepared values into it. Results of recent runs appear at the bottom of this page.</div>
+
+  <label for="repo">Repository (owner/name)</label>
+  <input id="repo" placeholder="your-github-user/college-result-management-system">
+  <p id="meta"></p>
+  <table aria-describedby="meta">
+    <thead><tr><th>Feature</th><th>Category</th><th>Status</th><th></th></tr></thead>
+    <tbody id="rows"><tr><td colspan="4">Loading…</td></tr></tbody>
+  </table>
+
+  <div id="change" class="panel" hidden>
+    <h2 id="change-title">Change</h2>
+    <label for="state">New state</label>
+    <select id="state"><option value="true">Enabled</option><option value="false">Disabled (show upgrade notice)</option></select>
+    <label for="msg-en">Upgrade message (English, optional, max 300 characters)</label><textarea id="msg-en" rows="2" maxlength="300"></textarea>
+    <label for="msg-bn">Upgrade message (Bangla, optional)</label><textarea id="msg-bn" rows="2" maxlength="300"></textarea>
+    <label for="url">Upgrade link for all locked features (optional, https://… or “-” to remove)</label><input id="url">
+    <p id="url-error" class="bad" hidden>The link must start with https://</p>
+    <h2>Values for the GitHub form</h2>
+    <pre id="values" class="panel"></pre>
+    <button id="copy" type="button">Copy values</button>
+    <a id="open" class="button" target="_blank" rel="noopener">Open workflow on GitHub</a>
+  </div>
+
+  <h2>Recent workflow runs</h2>
+  <div id="runs" class="panel">Enter the repository above to see recent runs.</div>
+</main>
+<script>
+  const $ = (id) => document.getElementById(id);
+  const guess = location.hostname.endsWith('github.io') ? `${location.hostname.split('.')[0]}/${location.pathname.split('/')[1] || ''}` : '';
+  $('repo').value = localStorage.getItem('devctl.repo') || guess;
+  let cfg = null, selected = null;
+  const repo = () => $('repo').value.trim();
+  const validRepo = () => /^[\w.-]+\/[\w.-]+$/.test(repo());
+  $('repo').addEventListener('change', () => { localStorage.setItem('devctl.repo', repo()); render(); loadRuns(); });
+
+  function render() {
+    if (!cfg) return;
+    $('meta').textContent = `Configuration version ${cfg.version}, last updated ${new Date(cfg.updatedAt).toLocaleString()}. Upgrade link: ${cfg.upgradeUrl || 'none'}.`;
+    const tbody = $('rows'); tbody.replaceChildren();
+    for (const [id, f] of Object.entries(cfg.features)) {
+      const tr = document.createElement('tr');
+      const cell = (text, cls) => { const td = document.createElement('td'); td.textContent = text; if (cls) td.className = cls; return td; };
+      tr.append(cell(`${f.label} (${id})`), cell(f.category), cell(f.enabled ? 'Enabled' : 'Disabled', f.enabled ? 'on' : 'off'));
+      const td = document.createElement('td'); const b = document.createElement('button');
+      b.type = 'button'; b.textContent = 'Change…'; b.onclick = () => pick(id); td.append(b); tr.append(td); tbody.append(tr);
+    }
+  }
+  function pick(id) {
+    selected = id; const f = cfg.features[id];
+    $('change').hidden = false; $('change-title').textContent = `Change “${f.label}”`;
+    $('state').value = String(!f.enabled); $('msg-en').value = f.message?.en || ''; $('msg-bn').value = f.message?.bn || ''; $('url').value = '';
+    values(); $('change').scrollIntoView({ behavior: 'smooth' });
+  }
+  function values() {
+    const url = $('url').value.trim();
+    const bad = url && url !== '-' && !/^https:\/\/\S+$/.test(url);
+    $('url-error').hidden = !bad;
+    $('values').textContent = `feature:     ${selected}\nenabled:     ${$('state').value}\nmessage_en:  ${$('msg-en').value.trim()}\nmessage_bn:  ${$('msg-bn').value.trim()}\nupgrade_url: ${url}`;
+    $('open').href = validRepo() ? `https://github.com/${repo()}/actions/workflows/feature-flags.yml` : '#';
+    $('open').setAttribute('aria-disabled', String(!validRepo() || bad));
+  }
+  ['state', 'msg-en', 'msg-bn', 'url'].forEach((id) => $(id).addEventListener('input', values));
+  $('copy').onclick = async () => { await navigator.clipboard.writeText($('values').textContent); $('copy').textContent = 'Copied'; setTimeout(() => ($('copy').textContent = 'Copy values'), 1500); };
+  $('open').addEventListener('click', (e) => { if ($('open').getAttribute('aria-disabled') === 'true') { e.preventDefault(); alert('Enter the repository and a valid link first.'); } });
+
+  async function loadRuns() {
+    if (!validRepo()) return;
+    $('runs').textContent = 'Loading…';
+    try {
+      // Public repositories only; unauthenticated GitHub API (60 requests/hour per visitor).
+      const r = await fetch(`https://api.github.com/repos/${repo()}/actions/workflows/feature-flags.yml/runs?per_page=5`);
+      if (!r.ok) throw new Error(r.status === 404 ? 'Workflow not found, or the repository is private (sign in on GitHub to see runs).' : `GitHub answered ${r.status}`);
+      const data = await r.json();
+      const ul = document.createElement('ul');
+      for (const run of data.workflow_runs) {
+        const li = document.createElement('li'); const a = document.createElement('a');
+        a.href = run.html_url; a.target = '_blank'; a.rel = 'noopener';
+        a.textContent = `${new Date(run.created_at).toLocaleString()} — ${run.actor?.login ?? ''} — ${run.status === 'completed' ? (run.conclusion === 'success' ? 'Succeeded' : `Failed (${run.conclusion})`) : 'In progress / waiting for approval'}`;
+        li.append(a); ul.append(li);
+      }
+      $('runs').replaceChildren(data.workflow_runs.length ? ul : 'No runs yet.');
+    } catch (e) { $('runs').textContent = e.message; }
+  }
+  fetch('feature-flags.json', { cache: 'no-store' }).then((r) => r.json()).then((c) => { cfg = c; render(); loadRuns(); })
+    .catch(() => { $('rows').innerHTML = '<tr><td colspan="4">Could not load feature-flags.json.</td></tr>'; });
+</script>
+</body>
+</html>

@@ -1,0 +1,86 @@
+/**
+ * Result sheet and marksheet viewer/printer for staff.
+ *  - Published/archived: stored results + frozen print context (identical to what was published).
+ *  - Administrator before publication: live preview, clearly labelled "Preview — not published".
+ * Teachers can open this page only for published examinations they took part in (rules enforce it).
+ */
+import { h, svgIcon } from '../core/dom.js';
+import { tt, L, currentLang } from '../i18n/index.js';
+import { pageHeader } from '../ui/components/page.js';
+import { loadingState, errorState, emptyState } from '../ui/components/states.js';
+import { actor, friendlyError, nameOf } from './_shared.js';
+import { ExamState } from '../domain/exam-lifecycle.js';
+import { subjectDefinition } from '../domain/session-calc.js';
+import { featureGate } from '../ui/components/feature-gate.js';
+
+export const title = 'nav.results';
+
+export function render({ query }) {
+  const root = h('section', { class: 'page page--wide' }, loadingState());
+  init(query, root).catch((e) => root.replaceChildren(errorState({ message: friendlyError(e) })));
+  return root;
+}
+
+async function init(query, root) {
+  const sid = query.get('sid');
+  const me = actor();
+  const [{ loadSessionBundle }, results, { loadAllCatalogues }, fonts] = await Promise.all([
+    import('../data/repositories/sessions-repository.js'), import('../data/repositories/results-repository.js'),
+    import('../data/repositories/catalogue-repository.js'), import('../print/fonts.js')]);
+  const bundle = await loadSessionBundle(sid);
+  const s = bundle.session;
+  const published = [ExamState.PUBLISHED, ExamState.ARCHIVED].includes(s.state);
+  if (!published && me.role !== 'super_admin') { root.replaceChildren(emptyState({ message: tt('Results become visible here after they are published.', 'ফলাফল প্রকাশের পর এখানে দেখা যাবে।') })); return; }
+  const cats = await loadAllCatalogues();
+  const ctx = await results.getPrintContext(sid);
+  let vms;
+  if (published) vms = (await results.listResults(sid)).map((r) => ({ ...r.vm, _groupId: r.groupId, _id: r.id }));
+  else { const c = await results.computeSession(sid); vms = c.vms.map((vm, i) => ({ ...vm, _groupId: c.sheet.rows[i].groupId, _id: c.sheet.rows[i].studentId })); }
+  await fonts.ensurePrintFonts();
+
+  const order = (g) => cats.groups.find((x) => x.id === g)?.order ?? 99;
+  const groups = bundle.sheets.map((x) => x.id).sort((a, b) => order(a) - order(b));
+  const state = { lang: query.get('lang') || ctx.print?.language || currentLang(), group: query.get('group') || groups[0], mode: query.get('student') ? 'marksheet' : 'sheet', student: query.get('student') || 'all' };
+  const area = h('div', { class: 'print-area' });
+  const controls = h('div', { class: 'print-controls no-print' });
+  const { renderResultSheet } = await import('../print/result-sheet.js');
+  const { renderProgressReport } = await import('../print/progress-report.js');
+  const { printContainer } = await import('../print/print-runner.js');
+  const { fontFamiliesFor, withPrintDefaults } = await import('../print/print-settings.js');
+  const printSettings = withPrintDefaults(ctx.print);
+
+  function paintControls() {
+    const groupVms = vms.filter((v) => v._groupId === state.group).sort((a, b) => Number(a.student.roll) - Number(b.student.roll));
+    const sel = (label, value, options, onChange) => h('label', { class: 'field field--inline' }, h('span', { class: 'field__label' }, label),
+      h('select', { class: 'input', onchange: (e) => { onChange(e.target.value); paint(); } }, options.map(([v, l]) => h('option', { value: v, selected: v === value }, l))));
+    controls.replaceChildren(
+      sel(tt('Printed language', 'মুদ্রণের ভাষা'), state.lang, [['en', 'English'], ['bn', 'বাংলা']], (v) => { state.lang = v; }),
+      groups.length > 1 ? sel(tt('Group', 'বিভাগ'), state.group, groups.map((g) => [g, nameOf(cats.groups, g)]), (v) => { state.group = v; state.student = 'all'; }) : null,
+      sel(tt('Document', 'নথি'), state.mode, [['sheet', tt('Full result sheet', 'পূর্ণ ফলাফল শিট')], ['marksheet', tt('Individual marksheets', 'একক মার্কশিট')]], (v) => { state.mode = v; }),
+      state.mode === 'marksheet' ? sel(tt('Student', 'শিক্ষার্থী'), state.student, [['all', tt('All students in this group', 'এই বিভাগের সব শিক্ষার্থী')], ...groupVms.map((v) => [v._id, `${v.student.roll} — ${L(v.student.name)}`])], (v) => { state.student = v; }) : null,
+      h('button', { class: 'btn btn--primary', type: 'button', onclick: () => printContainer(area, { families: fontFamiliesFor(printSettings), pageNumbers: printSettings.sheet.pageNumbers, pageLabel: state.lang === 'bn' ? 'পৃষ্ঠা' : 'Page' }) }, svgIcon('print'), h('span', {}, tt('Print', 'প্রিন্ট'))),
+      h('p', { class: 'muted small' }, tt('To save a PDF, choose "Save as PDF" in the print dialog.', 'পিডিএফ রাখতে প্রিন্ট উইন্ডোতে "Save as PDF" বাছুন।')));
+  }
+
+  function paint() {
+    paintControls();
+    const groupVms = vms.filter((v) => v._groupId === state.group);
+    const sheet = bundle.sheets.find((x) => x.id === state.group);
+    const ord = (x) => x.definition?.order ?? 999;
+    const subjects = (sheet?.subjectIds ?? []).map((id) => bundle.subjects.find((x) => x.id === id)).filter(Boolean).sort((a, b) => ord(a) - ord(b)).map((x) => ({ ...subjectDefinition(x) }));
+    const c = { ...ctx, lang: state.lang, print: printSettings };
+    if (!groupVms.length) { area.replaceChildren(emptyState({ message: tt('No students in this group.', 'এই বিভাগে শিক্ষার্থী নেই।') })); return; }
+    if (state.mode === 'sheet') {
+      area.replaceChildren(featureGate('result_sheet_print', () => renderResultSheet({ vms: groupVms, subjects, exam: groupVms[0].exam, groupLabel: groupVms[0].exam.groupLabel }, c)));
+    } else {
+      const list = state.student === 'all' ? groupVms : groupVms.filter((v) => v._id === state.student);
+      area.replaceChildren(featureGate('progress_report_print', () => h('div', {}, list.sort((a, b) => Number(a.student.roll) - Number(b.student.roll)).map((vm) => renderProgressReport(vm, c)))));
+    }
+  }
+
+  root.replaceChildren(
+    pageHeader({ title: L(s.title), subtitle: `${nameOf(cats.classes, s.classId)} · ${s.yearId}`, back: { href: me.role === 'super_admin' ? `#/admin/sheet?sid=${encodeURIComponent(sid)}` : '#/teacher/history', label: tt('Back', 'ফিরে যান') } }),
+    !published ? h('p', { class: 'notice notice--locked no-print' }, tt('Preview — not published. Students cannot see these results yet.', 'প্রাকদর্শন — প্রকাশিত নয়। শিক্ষার্থীরা এখনো এই ফলাফল দেখতে পাবে না।')) : null,
+    controls, area);
+  paint();
+}

@@ -1,0 +1,67 @@
+{
+  "$schema": "./feature-flags.schema.json",
+  "version": 1,
+  "updatedAt": "2026-10-16T00:00:00Z",
+  "defaultUpgradeMessage": {
+    "en": "This feature is not active for your college. Contact the developer to enable it.",
+    "bn": "এই সুবিধাটি আপনার কলেজের জন্য চালু নেই। চালু করতে ডেভেলপারের সাথে যোগাযোগ করুন।"
+  },
+  "upgradeUrl": null,
+  "features": {
+    "json_student_import": {
+      "category": "students",
+      "enabled": true,
+      "label": "JSON student import"
+    },
+    "custom_student_fields": {
+      "category": "students",
+      "enabled": true,
+      "label": "Custom student fields"
+    },
+    "public_result_lookup": {
+      "category": "results",
+      "enabled": true,
+      "label": "Public result lookup"
+    },
+    "progress_report_print": {
+      "category": "printing",
+      "enabled": true,
+      "label": "Individual marksheet printing"
+    },
+    "result_sheet_print": {
+      "category": "printing",
+      "enabled": true,
+      "label": "Full result sheet printing"
+    },
+    "custom_print_fonts": {
+      "category": "printing",
+      "enabled": true,
+      "label": "Custom print fonts"
+    },
+    "offline_mark_entry": {
+      "category": "marks",
+      "enabled": true,
+      "label": "Offline mark entry"
+    },
+    "historical_archive": {
+      "category": "results",
+      "enabled": true,
+      "label": "Historical result archive"
+    },
+    "bangla_interface": {
+      "category": "interface",
+      "enabled": true,
+      "label": "Bangla interface"
+    },
+    "dark_theme": {
+      "category": "interface",
+      "enabled": true,
+      "label": "Dark theme"
+    },
+    "audit_log_viewer": {
+      "category": "administration",
+      "enabled": true,
+      "label": "Audit log viewer"
+    }
+  }
+}

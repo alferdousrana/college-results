@@ -1,0 +1,46 @@
+# Deploys firestore.rules and firestore.indexes.json to Firebase.
+# Runs only when started by hand (Actions → Deploy Firestore rules & indexes → Run workflow)
+# or when those files change on main — and only after the security-rules tests pass on the emulator.
+# Needs repository secret FIREBASE_SERVICE_ACCOUNT (service-account JSON) and variable VITE_FIREBASE_PROJECT_ID.
+name: Deploy Firestore rules & indexes
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['firestore.rules', 'firestore.indexes.json']
+permissions:
+  contents: read
+concurrency:
+  group: firestore-deploy
+  cancel-in-progress: false
+jobs:
+  test-rules:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20, cache: npm }
+      - uses: actions/setup-java@v4
+        with: { distribution: temurin, java-version: '21' }
+      - run: npm ci
+      - run: npm install -g firebase-tools@13
+      - name: Security-rules tests on the Firestore emulator
+        run: firebase emulators:exec --only firestore --project demo-crms "npx vitest run --config vitest.rules.config.js"
+  deploy:
+    needs: test-rules
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install -g firebase-tools@13
+      - name: Deploy
+        env:
+          SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          PROJECT: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+        run: |
+          if [ -z "$SA" ] || [ -z "$PROJECT" ]; then echo "::error::Set secret FIREBASE_SERVICE_ACCOUNT and variable VITE_FIREBASE_PROJECT_ID"; exit 1; fi
+          printf '%s' "$SA" > "$RUNNER_TEMP/sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/sa.json"
+          firebase deploy --only firestore:rules,firestore:indexes --project "$PROJECT" --non-interactive --force
+          rm -f "$RUNNER_TEMP/sa.json"

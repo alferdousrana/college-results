@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+*.log
+coverage/
+.firebase/
+# Never commit credentials
+service-account*.json
+*-adminsdk-*.json
+scripts/node_modules/
+tests/e2e/out/

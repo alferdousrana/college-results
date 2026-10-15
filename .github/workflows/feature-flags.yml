@@ -1,0 +1,76 @@
+# Developer feature control.
+# Triggered manually from GitHub → Actions → "Feature control" (or the link on the dev-control page).
+# Security:
+#   * Only repository collaborators with write access can run workflow_dispatch.
+#   * The `feature-control` environment should require approval from the developer (Settings → Environments).
+#   * The Firebase service account lives ONLY in the environment secret FIREBASE_SERVICE_ACCOUNT.
+name: Feature control
+on:
+  workflow_dispatch:
+    inputs:
+      feature:
+        description: 'Feature id (see config/feature-flags.json)'
+        required: true
+        type: string
+      enabled:
+        description: 'Enable the feature?'
+        required: true
+        type: choice
+        options: ['true', 'false']
+      message_en:
+        description: 'Upgrade message (English, optional)'
+        required: false
+        type: string
+      message_bn:
+        description: 'Upgrade message (Bangla, optional)'
+        required: false
+        type: string
+      upgrade_url:
+        description: 'Upgrade link for all locked features (https://…, optional; "-" clears it)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: feature-control
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    environment: feature-control
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - name: Apply change
+        env:
+          FEATURE: ${{ inputs.feature }}
+          ENABLED: ${{ inputs.enabled }}
+          MSG_EN: ${{ inputs.message_en }}
+          MSG_BN: ${{ inputs.message_bn }}
+          UPGRADE_URL: ${{ inputs.upgrade_url }}
+        run: node scripts/apply-feature-change.mjs "$FEATURE" "$ENABLED" "$MSG_EN" "$MSG_BN" "$UPGRADE_URL"
+      - name: Validate
+        run: node scripts/validate-feature-flags.mjs config/feature-flags.json
+      - name: Commit configuration
+        env:
+          FEATURE: ${{ inputs.feature }}
+          ENABLED: ${{ inputs.enabled }}
+          ACTOR: ${{ github.actor }}
+        # Inputs are passed through env (never interpolated into the script) to prevent injection.
+        run: |
+          git config user.name "feature-control[bot]"
+          git config user.email "feature-control@users.noreply.github.com"
+          git add config/feature-flags.json
+          git commit -m "feature-control: ${FEATURE} -> ${ENABLED} (by ${ACTOR})"
+          git push
+      - name: Sync to Firestore
+        working-directory: scripts/admin
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: |
+          npm install --no-audit --no-fund
+          cd ../.. && node scripts/admin/sync-feature-flags.mjs

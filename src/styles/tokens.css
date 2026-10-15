@@ -1,0 +1,45 @@
+/* Design tokens. Ledger green for structure, signal colours reserved for status only.
+   One family (Hind Siliguri) renders both Latin and Bangla consistently. */
+:root {
+  --font-ui: 'Hind Siliguri', 'Noto Sans Bengali', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --step--1: 0.875rem; --step-0: 1rem; --step-1: 1.2rem; --step-2: 1.44rem; --step-3: 1.728rem;
+  --space-1: 4px; --space-2: 8px; --space-3: 12px; --space-4: 16px; --space-5: 24px; --space-6: 32px; --space-7: 48px;
+  --radius-s: 6px; --radius-m: 10px;
+  --tap: 44px;
+
+  --c-bg: #F3F6F4;
+  --c-surface: #FFFFFF;
+  --c-ink: #17231F;
+  --c-ink-2: #4E5F58;
+  --c-line: #D5DED9;
+  --c-brand: #0E6B57;
+  --c-brand-ink: #FFFFFF;
+  --c-brand-soft: #E1F0EA;
+  --c-good: #13795B; --c-good-soft: #DDF3EA;
+  --c-warn: #8A5A00; --c-warn-soft: #FBEFD5;
+  --c-bad: #B42318;  --c-bad-soft: #FDE7E4;
+  --c-info: #1D5C8F; --c-info-soft: #E3EEF8;
+  --c-focus: #E9B23A;
+  --shadow-1: 0 1px 2px rgba(23, 35, 31, .08);
+  color-scheme: light;
+}
+[data-theme='dark'] {
+  --c-bg: #0F1714;
+  --c-surface: #17221E;
+  --c-ink: #E6EEEA;
+  --c-ink-2: #A3B5AD;
+  --c-line: #2B3A34;
+  --c-brand: #4FBF9F;
+  --c-brand-ink: #062A21;
+  --c-brand-soft: #1C3A31;
+  --c-good: #5FD3A5; --c-good-soft: #173A2D;
+  --c-warn: #F2C26B; --c-warn-soft: #3A2E14;
+  --c-bad: #FF8A7E;  --c-bad-soft: #3D1D1A;
+  --c-info: #8CC2F0; --c-info-soft: #18304A;
+  --shadow-1: none;
+  color-scheme: dark;
+}
+:root { --cell-pad: 10px 12px; }
+[data-density='compact'] { --cell-pad: 5px 8px; --tap: 36px; }
+[data-text-size='large'] { font-size: 112.5%; }
+[data-reduce-motion='true'] *, [data-reduce-motion='true'] *::before { animation: none !important; transition: none !important; }

@@ -1,0 +1,7 @@
+{
+  "name": "crms-admin-scripts",
+  "private": true,
+  "type": "module",
+  "description": "Trusted, non-browser scripts. Run locally by the developer or inside GitHub Actions. Never bundled into the web app.",
+  "dependencies": { "firebase-admin": "^12.7.0" }
+}

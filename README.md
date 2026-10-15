@@ -1,0 +1,49 @@
+# College Results
+
+College Results replaces Excel-based result preparation. Teachers enter marks for their own subjects, the administrator checks and publishes the results, and students look up and print their marksheets. It works on phones, tablets and computers, can be installed like an app, and keeps working for mark entry when the internet drops.
+
+Change the language (English / বাংলা), light or dark appearance, table density and text size in **Settings → Appearance and language**. Your choices are remembered.
+
+## For the Super Admin
+
+**Signing in.** The developer sets up your administrator account once. Sign in from **Staff sign in** with your email and password.
+
+**Before the first examination.** In **Settings**, fill in **Institution** (names in English and Bangla, address, logo, signatures, seal) and review **Grades and pass rules**. The grade scale starts with the values from the sample marksheet; check them against your institution's rules and save. Then set up **Classes & groups** (years, classes, groups such as Science, Humanities and Business Studies, and examination names), **Subjects** (each with its CQ, MCQ, practical or other parts, full marks and pass marks) and **Assignments** (which approved teacher teaches which subject).
+
+**Teachers.** Teachers can request an account; requests appear under **Teachers → Requests**. Choose **Approve** or **Reject**. You can also **Create teacher account** yourself. A teacher can only enter marks for the subjects assigned to them.
+
+**Students.** **Students** lists one class and year at a time. Use **Add student**, **Edit**, or the status list to mark a student inactive, transferred or left — records are never deleted. Each student keeps a permanent **Student ID**, so a changed roll number never mixes up results. To add many students, use **Import JSON**: download the template, fill it in, choose the file and check the preview. Every problem is listed by row before anything is saved, and you decide whether students who already exist are updated or skipped.
+
+**Creating a result sheet.** Choose **Create new result sheet** and follow the five steps: examination details, subjects for each group, teachers, students (the class's students load automatically) and review. Save as a draft at any time. When the review says everything is in place, choose **Share with all teachers**; a summary of subjects, teachers and student count is shown before you confirm.
+
+**During mark entry.** Open the result sheet to see each subject's progress, who is assigned and whether it is submitted. **Missing marks** lists every missing mark with the student, subject, part and teacher. You can change a subject's teacher; marks already entered are kept.
+
+**Review and publish.** Choose **Close mark entry**, then **Start review**. The **Results** tab shows totals, GPA, grades and merit positions for each group. Students with missing marks are listed and the sheet cannot be published until they are complete. Choose **Publish results** and type PUBLISH to confirm. The grading rules in use are saved with the publication, so later changes to settings never alter it.
+
+**Corrections.** On a published sheet choose **Correct a published result**, give the reason, change the marks, and publish again. Students keep seeing the earlier version until the corrected one is published. Every version and reason is listed under **Publications**.
+
+**Printing.** **Print** on a result sheet opens the full result sheet for each group and individual marksheets, in English or Bangla. Choose **Save as PDF** in the print window to keep a PDF. **Settings → Print design** controls fonts, sizes, borders, logo and signature positions, margins and which details appear.
+
+**History.** **Result archive** finds published results by year, class, examination, group, roll or name. **Audit log** shows who changed what and when.
+
+## For teachers
+
+1. Choose **Staff sign in → Request a teacher account** and send the form. Sign in again after the administrator approves you.
+2. **Mark entry** shows each examination shared with you and your subjects in it, with progress.
+3. Open a subject. Type a number in each box, or **AB** if the student was absent for that part. Leave a box empty if you do not have the mark yet — empty is not the same as zero. Bangla digits work. **Enter** or **↓** moves to the next student.
+4. Tick **Absent** if the student missed the whole subject. If marks were already entered you are asked to confirm.
+5. Marks save automatically. The status above the table tells you what has reached the server: **All changes saved** means saved. **Waiting to be sent** or **Offline** means the marks are kept on your device and will be sent when the connection returns — keep the app open or come back to it. If someone else changed the same mark, the row asks whether to keep yours or the saved one.
+6. When nothing is missing, choose **Submit subject**. After that only the administrator can reopen it.
+7. **Past examinations** lists earlier examinations; once results are published you can view and print the result sheets and marksheets.
+
+## For students and guardians
+
+1. Open the app and choose **Find a result**. No account is needed.
+2. Choose the class, the examination year and the examination name, and type the roll number. If the college asks for a verification code (such as date of birth), enter it.
+3. Choose **Show result**. Pick English or বাংলা for the marksheet and choose **Print marksheet** (or **Save as PDF** in the print window).
+
+Only published results can be found. If nothing appears, check the details or ask the college office.
+
+## Installing the app
+
+On Android and on desktop Chrome or Edge, the app offers to install itself once. If you choose **Not now** it will not ask again; you can install it later from **Settings → Appearance and language → Install app**. On iPhone, open the site in Safari and use **Share → Add to Home Screen**. Teachers who enter marks on a phone should install the app.

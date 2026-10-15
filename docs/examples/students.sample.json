@@ -1,0 +1,7 @@
+{
+  "students": [
+    { "roll": 101, "name": "Diya Mondol", "nameBn": "দিয়া মণ্ডল", "groupId": "science", "optionalSubjectId": "biology" },
+    { "roll": 102, "name": "Suraiya Akter", "nameBn": "সুরাইয়া আক্তার", "groupId": "science", "optionalSubjectId": "math",
+      "customFields": { "fatherName": "Abdul Karim", "bloodGroup": "O+" } }
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "name": "College Result Management System",
+  "short_name": "Results",
+  "description": "Enter marks, prepare result sheets and publish results.",
+  "start_url": "./#/",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F5F7F6",
+  "theme_color": "#0E6B57",
+  "lang": "en",
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" },
+    { "src": "icons/maskable.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "maskable" }
+  ]
+}

@@ -1,0 +1,217 @@
+rules_version = '2';
+
+// =====================================================================================
+// College Result Management System — Firestore Security Rules (Phase 1 draft)
+// Principles:
+//   * Deny by default. Every allow rule is role + status + lifecycle aware.
+//   * Roles live in users/{uid} and can only be changed by an active super_admin
+//     (the first super_admin is created with scripts/bootstrap-admin.mjs via the Admin SDK).
+//   * Feature flags are NOT authorization; nothing here reads featureFlags.
+//   * Public visitors can only `get` minimal published result documents by unguessable id.
+// Keep validTransition() in sync with src/domain/exam-lifecycle.js (a unit test checks it).
+// =====================================================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    function signedIn() { return request.auth != null; }
+    function uid() { return request.auth.uid; }
+    function userPath(u) { return /databases/$(database)/documents/users/$(u); }
+    function me() { return get(userPath(uid())).data; }
+    function isActive() { return signedIn() && exists(userPath(uid())) && me().status == 'active'; }
+    function isAdmin() { return isActive() && me().role == 'super_admin'; }
+    function isTeacher() { return isActive() && me().role == 'teacher'; }
+    function serverTime(field) { return request.resource.data[field] == request.time; }
+    function onlyChanges(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+
+    function sessionPath(sid) { return /databases/$(database)/documents/examSessions/$(sid); }
+    function session(sid) { return get(sessionPath(sid)).data; }
+    function sessionSubject(sid, subjectId) {
+      return get(/databases/$(database)/documents/examSessions/$(sid)/sessionSubjects/$(subjectId)).data;
+    }
+    function inSession(sid) { return isTeacher() && uid() in session(sid).teacherIds; }
+    function assignedTo(sid, subjectId) { return isTeacher() && uid() in sessionSubject(sid, subjectId).teacherIds; }
+
+    function validTransition(from, to) {
+      return from == to || [from, to] in [
+        ['draft', 'ready_for_mark_entry'],
+        ['ready_for_mark_entry', 'draft'],
+        ['ready_for_mark_entry', 'mark_entry_in_progress'],
+        ['mark_entry_in_progress', 'submitted'],
+        ['submitted', 'under_review'],
+        ['submitted', 'mark_entry_in_progress'],
+        ['under_review', 'published'],
+        ['under_review', 'mark_entry_in_progress'],
+        ['published', 'under_review'],
+        ['published', 'archived']
+      ];
+    }
+    function markEntryOpen(sid) {
+      return session(sid).state in ['ready_for_mark_entry', 'mark_entry_in_progress'];
+    }
+
+    // ---------- users & approval ----------
+    match /users/{userId} {
+      allow read: if (signedIn() && uid() == userId) || isAdmin();
+      // Self-registration: always a pending teacher. Nobody can self-assign a role.
+      allow create: if signedIn() && uid() == userId
+        && request.resource.data.keys().hasOnly(['displayName', 'email', 'phone', 'role', 'status', 'createdAt', 'updatedAt', 'requestNote'])
+        && request.resource.data.role == 'teacher'
+        && request.resource.data.status == 'pending'
+        && request.resource.data.email == request.auth.token.email
+        && serverTime('createdAt')
+        // …or an administrator creates an already-approved teacher account.
+        || (isAdmin() && request.resource.data.role == 'teacher' && request.resource.data.status == 'active'
+            && request.resource.data.approvedBy == uid());
+      // Owners may edit harmless profile fields only.
+      allow update: if (signedIn() && uid() == userId && onlyChanges(['displayName', 'phone', 'prefs', 'updatedAt']))
+        || (isAdmin() && request.resource.data.role in ['teacher', 'super_admin']
+            && request.resource.data.status in ['pending', 'active', 'rejected', 'disabled']);
+      allow delete: if false; // deactivate instead; keeps audit trail intact
+    }
+
+    // ---------- institution, settings, catalogue ----------
+    match /institution/public { allow read: if true; allow write: if isAdmin(); }
+    match /institution/private { allow read, write: if isAdmin(); }
+    match /settings/{settingId} { allow read: if isActive(); allow write: if isAdmin(); }
+    match /academicYears/{id} { allow read: if isActive(); allow write: if isAdmin(); }
+    match /classes/{id} { allow read: if isActive(); allow write: if isAdmin(); }
+    match /groups/{id} { allow read: if isActive(); allow write: if isAdmin(); }
+    match /subjects/{id} { allow read: if isActive(); allow write: if isAdmin(); }
+    match /examDefinitions/{id} { allow read: if isActive(); allow write: if isAdmin(); }
+    match /teacherAssignments/{id} {
+      allow read: if isAdmin() || (isTeacher() && resource.data.teacherId == uid());
+      allow write: if isAdmin();
+    }
+
+    // ---------- students (private records: admin only) ----------
+    match /students/{studentId} {
+      allow read, write: if isAdmin();
+      // Per-student summary of published results (written at publication).
+      match /publishedResults/{sessionId} { allow read, write: if isAdmin(); }
+    }
+    // Doc id `${yearId}__${classId}__${roll}` makes duplicate rolls impossible.
+    match /classEnrollments/{enrollmentId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin() && enrollmentId == request.resource.data.yearId + '__' + request.resource.data.classId + '__' + request.resource.data.roll;
+      allow update, delete: if isAdmin();
+    }
+
+    // ---------- examination sessions ----------
+    // Doc id `${yearId}__${classId}__${examDefId}` prevents duplicate sessions.
+    match /examSessions/{sid} {
+      allow read: if isAdmin() || (isTeacher() && uid() in resource.data.teacherIds);
+      allow create: if isAdmin()
+        && sid == request.resource.data.yearId + '__' + request.resource.data.classId + '__' + request.resource.data.examDefId
+        && request.resource.data.state == 'draft';
+      allow update: if (isAdmin() && validTransition(resource.data.state, request.resource.data.state))
+        // A teacher's first saved mark may move the session into "in progress" — nothing else.
+        || (isTeacher() && uid() in resource.data.teacherIds
+            && resource.data.state == 'ready_for_mark_entry'
+            && request.resource.data.state == 'mark_entry_in_progress'
+            && onlyChanges(['state', 'updatedAt']));
+      allow delete: if isAdmin() && resource.data.state == 'draft';
+
+      match /sheets/{groupId} {
+        allow read: if isAdmin() || inSession(sid);
+        allow write: if isAdmin() && session(sid).state in ['draft', 'ready_for_mark_entry'];
+      }
+
+      match /sessionSubjects/{subjectId} {
+        allow read: if isAdmin() || inSession(sid);
+        allow write: if isAdmin() && !(session(sid).state in ['published', 'archived']);
+        // Assigned teacher may mark their own subject as submitted / unsubmit while entry is open.
+        allow update: if assignedTo(sid, subjectId) && markEntryOpen(sid)
+          && onlyChanges(['submission', 'updatedAt'])
+          && request.resource.data.submission.by == uid();
+
+        // One document per student per subject => duplicate marks impossible.
+        match /marks/{studentId} {
+          allow read: if isAdmin() || assignedTo(sid, subjectId);
+          allow create: if canWriteMarks(sid, subjectId)
+            && exists(/databases/$(database)/documents/examSessions/$(sid)/enrollments/$(studentId))
+            && validMarkDoc(studentId, subjectId)
+            && request.resource.data.version == 1;
+          // Optimistic concurrency: writer must have seen the latest version.
+          allow update: if canWriteMarks(sid, subjectId)
+            && validMarkDoc(studentId, subjectId)
+            && request.resource.data.version == resource.data.version + 1;
+          allow delete: if false;
+        }
+      }
+
+      match /enrollments/{studentId} {
+        allow read: if isAdmin() || inSession(sid);
+        allow write: if isAdmin() && !(session(sid).state in ['published', 'archived']);
+      }
+      match /results/{studentId} {
+        allow read: if isAdmin() || (inSession(sid) && session(sid).state in ['published', 'archived']);
+        allow write: if isAdmin() && session(sid).state in ['submitted', 'under_review'];
+      }
+      match /publications/{pubId} {
+        allow read: if isAdmin();
+        allow create: if isAdmin() && serverTime('publishedAt');
+        allow update, delete: if false; // publication history is append-only
+      }
+    }
+
+    function canWriteMarks(sid, subjectId) {
+      return (isAdmin() && !(session(sid).state in ['published', 'archived', 'draft']))
+        || (assignedTo(sid, subjectId) && markEntryOpen(sid)
+            && sessionSubject(sid, subjectId).get('submission', {}).get('state', 'open') != 'submitted');
+    }
+    function validMarkDoc(studentId, subjectId) {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['studentId', 'subjectId', 'components', 'absent', 'version', 'updatedBy', 'updatedAt', 'clientUpdatedAt', 'note'])
+        && d.studentId == studentId && d.subjectId == subjectId
+        && d.components is map && d.components.size() <= 12
+        && d.absent is bool
+        && d.updatedBy == uid() && serverTime('updatedAt');
+      // Per-value range checks need the component definition; the client and the
+      // calculation engine validate ranges, and the publish step refuses invalid marks.
+    }
+
+    // ---------- public lookup (no account required) ----------
+    // Document id is a SHA-256 of (public session id, roll[, verifier]). `list` is denied,
+    // so results cannot be enumerated with a query.
+    match /publicResults/{lookupId} {
+      allow get: if true;
+      allow list: if false;
+      allow write: if isAdmin();
+    }
+    match /publicExamIndex/{publicSessionId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------- audit log (append-only) ----------
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow create: if isActive()
+        && request.resource.data.actorUid == uid()
+        && request.resource.data.actorRole == me().role
+        && serverTime('at');
+      allow update, delete: if false;
+    }
+
+    // ---------- notifications ----------
+    // Personal (recipientUid) or role broadcast (audience == 'admins'). Content is i18n keys + small params.
+    match /notifications/{id} {
+      allow read: if signedIn() && (resource.data.recipientUid == uid() || (resource.data.audience == 'admins' && isAdmin()));
+      allow create: if isActive() && request.resource.data.senderUid == uid()
+        && request.resource.data.readBy == [] && serverTime('createdAt')
+        && (request.resource.data.audience == 'admins' || isAdmin());
+      // A reader may only add themselves to readBy.
+      allow update: if signedIn() && onlyChanges(['readBy'])
+        && (resource.data.recipientUid == uid() || (resource.data.audience == 'admins' && isAdmin()))
+        && request.resource.data.readBy.toSet().difference(resource.data.readBy.toSet()) == [uid()].toSet();
+      allow delete: if false;
+    }
+
+    // ---------- feature flags (written only by the GitHub Actions Admin SDK job) ----------
+    match /featureFlags/{doc} { allow read: if true; allow write: if false; }
+
+    // ---------- everything else ----------
+    match /{document=**} { allow read, write: if false; }
+  }
+}

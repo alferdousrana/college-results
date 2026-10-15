@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0E6B57" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0F1714" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="College result management: mark entry, result sheets and published results." />
+    <link rel="manifest" href="%BASE_URL%manifest.webmanifest" />
+    <link rel="icon" href="%BASE_URL%icons/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="%BASE_URL%icons/icon.svg" />
+    <title>College Results</title>
+    <script>
+      // Apply saved theme before first paint to avoid a flash of the wrong theme.
+      try {
+        var p = JSON.parse(localStorage.getItem('crms.prefs') || '{}');
+        if (p.theme === 'dark' || (p.theme === 'system' && matchMedia('(prefers-color-scheme: dark)').matches)) {
+          document.documentElement.dataset.theme = 'dark';
+        }
+        if (p.lang === 'bn') document.documentElement.lang = 'bn';
+        if (p.density === 'compact') document.documentElement.dataset.density = 'compact';
+        if (p.textSize === 'large') document.documentElement.dataset.textSize = 'large';
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div id="app" aria-live="polite"></div>
+    <div id="toast-region" class="toast-region" role="status" aria-live="polite"></div>
+    <noscript>This application needs JavaScript enabled.</noscript>
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
