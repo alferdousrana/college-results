@@ -16,7 +16,7 @@ export async function render(el) {
   const vEn = field({ label: tt('What students are asked for (English)', 'শিক্ষার্থীদের কী জিজ্ঞাসা করা হবে (ইংরেজি)'), name: 'pven', value: pub.verifierLabel?.en ?? '' });
   const vBn = field({ label: tt('What students are asked for (Bangla)', 'শিক্ষার্থীদের কী জিজ্ঞাসা করা হবে (বাংলা)'), name: 'pvbn', value: pub.verifierLabel?.bn ?? '' });
   const fieldsCg = checkGroup({ label: tt('Extra details shown on the public marksheet', 'পাবলিক মার্কশিটে অতিরিক্ত তথ্য'), name: 'pf',
-    options: [['section', tt('Section', 'শাখা')], ['shift', tt('Shift', 'শিফট')], ['fatherName', tt("Father's name", 'পিতার নাম')], ['motherName', tt("Mother's name", 'মাতার নাম')], ['studentCode', tt('Student ID', 'শিক্ষার্থী আইডি')], ...custom.map((f) => [`custom:${f.key}`, L(f.label)])].map(([value, label]) => ({ value, label })),
+    options: [['fatherName', tt("Father's name", 'পিতার নাম')], ['motherName', tt("Mother's name", 'মাতার নাম')], ['studentCode', tt('Student ID', 'শিক্ষার্থী আইডি')], ...custom.map((f) => [`custom:${f.key}`, L(f.label)])].map(([value, label]) => ({ value, label })),
     values: pub.publicStudentFields ?? [] });
   const pos = field({ label: tt('Show merit position on public results', 'পাবলিক ফলাফলে মেধাস্থান দেখান'), name: 'pp', type: 'checkbox', value: pub.showPositionPublicly !== false });
   const bar = saveBar({ onSave: () => repo.saveSetting(actor(), 'publication', { verifierField: verifier.value || null, verifierLabel: { en: vEn.value || 'Verification', bn: vBn.value || 'যাচাই' }, publicStudentFields: fieldsCg.value, showPositionPublicly: pos.value }, pub.revision ?? 0).then(() => { pub.revision = (pub.revision ?? 0) + 1; }) });

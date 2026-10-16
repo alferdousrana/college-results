@@ -44,3 +44,9 @@ Grade bands (validated for gaps, overlaps and one fail band), GPA maximum, decim
 
 ## Tie handling (deterministic)
 Students are ordered by the configured keys (default: passed first, GPA, total marks). Students equal on every key share a position; with the "never share" method the lower roll comes first. The order is the same on every calculation for the same inputs.
+
+## Combined papers (round 4)
+Bangla 1st/2nd and English 1st/2nd are separate subjects for mark entry and teacher assignment, each with `combine: { key, name, paper }`. The engine (`combine.js`) merges papers with the same key into one subject: full and obtained marks are summed, the grade comes from the combined percentage, and the combined subject passes only if every paper meets its own component pass marks (plus `combine.passMarks` on the total, if set). GPA counts the combined subject once. Missing marks in either paper keep the result incomplete.
+
+## Group subject rules
+Each group in a result sheet stores `subjectRoles` (compulsory / choice / fourth), `choiceCount`, `requiresFourth` and `examsPerStudent`. A student sits all compulsory subjects plus the chosen ones (`enrollment.subjectIds`) and the 4th subject (`optionalSubjectId`). Sharing is blocked if a student has the wrong number of choices or no 4th subject when one is required; a different paper count is a warning. Starting rules for the college: Science 1 choice (Higher Mathematics or Biology) + 4th; Humanities 3 choices + 4th; Business Studies 1 choice + 4th; 9 papers each.

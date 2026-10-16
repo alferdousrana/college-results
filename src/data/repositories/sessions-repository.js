@@ -81,7 +81,15 @@ export async function saveDraft(actor, existingId, payload) {
   // Children: replace sets, deleting entries that were removed from the draft.
   const existing = existingId ? await loadSessionBundle(sid) : { sheets: [], subjects: [], enrollments: [] };
   const batch = b.batch();
-  for (const g of payload.groups) batch.set(`${paths.sheets(sid)}/${g.groupId}`, { subjectIds: g.subjectIds, groupLabel: g.groupLabel ?? null, updatedAt: serverTime() });
+  for (const g of payload.groups) {
+    batch.set(`${paths.sheets(sid)}/${g.groupId}`, {
+      subjectIds: g.subjectIds, groupLabel: g.groupLabel ?? null,
+      // Group rules: role of each subject, how many choice subjects a student takes, 4th subject, papers per student.
+      subjectRoles: g.subjectRoles ?? {}, subjectColumns: g.subjectColumns ?? {},
+      choiceCount: Number(g.choiceCount ?? 0), requiresFourth: Boolean(g.requiresFourth), examsPerStudent: g.examsPerStudent ? Number(g.examsPerStudent) : null,
+      updatedAt: serverTime(),
+    });
+  }
   existing.sheets.filter((s) => !groupIds.includes(s.id)).forEach((s) => batch.delete(`${paths.sheets(sid)}/${s.id}`));
   for (const s of subjects) {
     batch.set(paths.sessionSubject(sid, s.subjectId), {

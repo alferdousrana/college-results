@@ -78,11 +78,26 @@ export function renderProgressReport(vm, ctx) {
         cols.length ? h('th', { colspan: cols.length }, Lb.obtained) : null,
         h('th', { rowspan: 2 }, Lb.totalMarks), h('th', { rowspan: 2 }, Lb.gradePoint), h('th', { rowspan: 2 }, Lb.letterGrade)),
       h('tr', {}, cols.map((k) => h('th', {}, colLabel(k))))),
-    h('tbody', {}, vm.subjects.map((sub) => h('tr', { class: sub.passed === false ? 'is-fail' : '' },
-      h('td', { class: 'pr-subj' }, pick(sub.name, lang), sub.isOptional ? ` (${Lb.optional})` : ''),
-      h('td', {}, n(sub.fullMarks)), f.highestMarks ? h('td', {}, n(sub.highest, 2)) : null,
-      cols.map((k) => { const v = componentCell(sub, k); return h('td', { class: v === null ? 'is-na' : '' }, v === null ? '' : n(v)); }),
-      h('td', {}, sub.state === 'ABSENT' ? Lb.absent : n(sub.obtained, 2)), h('td', {}, n(sub.point)), h('td', {}, sub.grade ?? '')))),
+    h('tbody', {}, vm.subjects.flatMap((sub) => {
+      const fail = sub.passed === false ? 'is-fail' : '';
+      const cells = (x) => cols.map((k) => { const v = componentCell(x, k); return h('td', { class: v === null ? 'is-na' : '' }, v === null ? '' : n(v)); });
+      if (sub.isCombined) {
+        // One row per paper; total, grade point and letter grade belong to the combined subject.
+        const span = sub.parts.length;
+        return sub.parts.map((part, i) => h('tr', { class: fail },
+          h('td', { class: 'pr-subj' }, pick(part.name, lang)),
+          h('td', {}, n(part.fullMarks)), f.highestMarks ? h('td', {}, n(part.highest, 2)) : null,
+          cells(part),
+          i === 0 ? h('td', { rowspan: span, class: 'pr-combined' }, sub.state === 'ABSENT' ? Lb.absent : n(sub.obtained, 2)) : null,
+          i === 0 ? h('td', { rowspan: span, class: 'pr-combined' }, n(sub.point)) : null,
+          i === 0 ? h('td', { rowspan: span, class: 'pr-combined' }, sub.grade ?? '') : null));
+      }
+      return [h('tr', { class: fail },
+        h('td', { class: 'pr-subj' }, pick(sub.name, lang), sub.isOptional ? ` (${Lb.optional})` : ''),
+        h('td', {}, n(sub.fullMarks)), f.highestMarks ? h('td', {}, n(sub.highest, 2)) : null,
+        cells(sub),
+        h('td', {}, sub.state === 'ABSENT' ? Lb.absent : n(sub.obtained, 2)), h('td', {}, n(sub.point)), h('td', {}, sub.grade ?? ''))];
+    })),
     h('tfoot', {}, h('tr', {}, h('th', { colspan: 2 + (f.highestMarks ? 1 : 0) + cols.length }, Lb.total),
       h('th', {}, n(vm.totals.obtained, 2)), h('th', {}, vm.gpa == null ? '' : n(vm.gpa, 2)), h('th', {}, vm.grade ?? ''))));
 

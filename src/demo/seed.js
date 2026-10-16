@@ -101,8 +101,8 @@ export async function ensureDemoSeed(backend) {
       const [en, bn] = NAMES[n++ % NAMES.length];
       const id = await saveStudent(DEMO_ADMIN, null, {
         nameEn: en, nameBn: bn, fatherName: `Father of ${en.split(' ')[0]}`, motherName: `Mother of ${en.split(' ')[0]}`,
-        dob: `2009-0${(i % 9) + 1}-1${i % 9}`, current: { yearId: '2026', classId: 'class-11', groupId, roll: String(start + i), section: 'A', shift: 'Day',
-          optionalSubjectId: groupId === 'science' ? (i % 2 ? 'biology' : 'higher-math') : 'agriculture' },
+        dob: `2009-0${(i % 9) + 1}-1${i % 9}`, current: { yearId: '2026', classId: 'class-11', groupId, roll: String(start + i),
+        },
         customFields: { bloodGroup: ['A+', 'B+', 'O+'][i % 3] },
       });
       studentIds.push({ id, groupId, roll: String(start + i), en, bn });
@@ -119,12 +119,21 @@ async function seedExam(backend, students, examDefId, { fill, publish }) {
   const { publishResults } = await import('../data/repositories/results-repository.js');
   const subjects = (await backend.list(C.SUBJECTS, { orderBy: [['order', 'asc']] })).items;
   const teacherOf = (sid) => Object.entries(TEACH).filter(([, s]) => s.includes(sid)).map(([t]) => t);
-  const groups = ['science', 'humanities', 'business'].map((g) => ({ groupId: g, subjectIds: subjects.filter((s) => s.groupIds.includes(g)).map((s) => s.id) }));
+  // Science: Higher Mathematics or Biology as the main subject, the other (or Agriculture) as 4th. Others: Agriculture as 4th.
+  const roles = { science: { 'higher-math': 'choice', biology: 'choice', agriculture: 'fourth' }, humanities: { agriculture: 'fourth' }, business: { agriculture: 'fourth' } };
+  const groups = ['science', 'humanities', 'business'].map((g) => ({ groupId: g, subjectIds: subjects.filter((s) => s.groupIds.includes(g)).map((s) => s.id),
+    subjectRoles: roles[g], choiceCount: g === 'science' ? 1 : 0, requiresFourth: true }));
+  const choicesOf = (st) => {
+    if (st.groupId !== 'science') return { subjectIds: ['agriculture'], optionalSubjectId: 'agriculture' };
+    const main = Number(st.roll) % 2 ? 'higher-math' : 'biology';
+    const fourth = main === 'biology' ? 'higher-math' : 'biology';
+    return { subjectIds: [main, fourth], optionalSubjectId: fourth };
+  };
   const title = examDefId === 'annual' ? { en: 'Annual Examination 2026', bn: 'বার্ষিক পরীক্ষা ২০২৬' } : { en: 'Half-Yearly Examination 2026', bn: 'অর্ধবার্ষিক পরীক্ষা ২০২৬' };
   const sid = await saveDraft(DEMO_ADMIN, null, {
     yearId: '2026', classId: 'class-11', examDefId, title, heldOn: examDefId === 'annual' ? '2026-11-10' : '2026-06-15', groups,
     subjects: subjects.map((s) => ({ subjectId: s.id, definition: { name: s.name, code: s.code, order: s.order, components: s.components, passMarks: s.passMarks, countsTowardGpa: true, countsTowardTotal: true }, teacherIds: teacherOf(s.id) })),
-    roster: students.map((s) => ({ studentId: s.id, roll: s.roll, name: { en: s.en, bn: s.bn }, groupId: s.groupId, optionalSubjectId: s.groupId === 'science' ? (Number(s.roll) % 2 ? 'biology' : 'higher-math') : 'agriculture', section: 'A', shift: 'Day' })),
+    roster: students.map((s) => ({ studentId: s.id, roll: s.roll, name: { en: s.en, bn: s.bn }, groupId: s.groupId, ...choicesOf(s) })),
   });
   const teachers = Object.fromEntries(Object.keys(TEACH).map((t) => [t, { status: 'active' }]));
   await shareWithTeachers(DEMO_ADMIN, sid, teachers);
@@ -132,7 +141,8 @@ async function seedExam(backend, students, examDefId, { fill, publish }) {
   const transport = createMarkTransport(DEMO_ADMIN);
   for (const st of students) {
     for (const g of groups.filter((x) => x.groupId === st.groupId)) {
-      for (const subId of g.subjectIds) {
+      const c = choicesOf(st);
+      for (const subId of g.subjectIds.filter((id) => !g.subjectRoles[id] || c.subjectIds.includes(id))) {
         if (rand() > fill) continue;
         const def = subjects.find((s) => s.id === subId);
         const ability = 0.45 + (Number(st.roll) % 7) * 0.075;

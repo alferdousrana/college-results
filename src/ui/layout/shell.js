@@ -36,6 +36,8 @@ function buildFrame() {
 /** The most specific navigation route wins (so /admin/assignments does not also light up /admin). */
 function isActive(route, path) {
   if (!path) return false;
+  if (path.startsWith('/admin/sheet/') || path === '/admin/sheet') path = '/admin/sheets'; // sheet pages belong to "Result sheets"
+  if (path === '/marks' || path === '/results') return false;
   const matches = navItems().filter((r) => path === r.path || path.startsWith(`${r.path}/`));
   const best = matches.sort((a, b) => b.path.length - a.path.length)[0];
   return best?.path === route.path;

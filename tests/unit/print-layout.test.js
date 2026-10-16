@@ -36,13 +36,31 @@ describe('marksheet', () => {
   });
 });
 
+describe('combined papers on the marksheet', () => {
+  it('prints one row per paper with a shared grade', () => {
+    const { vms } = sampleData();
+    const el = renderProgressReport(vms[0], ctx('en'));
+    const rows = [...el.querySelectorAll('.pr-marks tbody tr')];
+    expect(rows[0].textContent).toContain('Bangla 1st Paper');
+    expect(rows[1].textContent).toContain('Bangla 2nd Paper');
+    expect(rows[0].querySelectorAll('.pr-combined')).toHaveLength(3);
+    expect(rows[1].querySelectorAll('.pr-combined')).toHaveLength(0);
+  });
+  it('fit-to-width scale never exceeds 1 and shrinks wide tables', async () => {
+    const { fitScale } = await import('../../src/print/print-runner.js');
+    expect(fitScale(500)).toBe(1);
+    expect(fitScale(2000)).toBeLessThan(0.6);
+    expect(fitScale(2000, { paper: 'Legal' })).toBeGreaterThan(fitScale(2000));
+  });
+});
+
 describe('component columns', () => {
   it('only fills cells for components the subject has', () => {
     const { vms } = sampleData();
     const cols = componentColumns(vms[0].subjects);
     expect(cols).toEqual(['CQ', 'MCQ', 'PRACTICAL']);
     const el = renderProgressReport(vms[0], ctx('en'));
-    const englishRow = [...el.querySelectorAll('.pr-marks tbody tr')].find((tr) => tr.textContent.startsWith('English'));
+    const englishRow = [...el.querySelectorAll('.pr-marks tbody tr')].find((tr) => tr.textContent.startsWith('English 1st'));
     expect(englishRow.querySelectorAll('td.is-na')).toHaveLength(2); // English has no MCQ/practical
   });
 });
@@ -54,6 +72,11 @@ describe('full result sheet', () => {
     expect(el.querySelectorAll('thead tr')).toHaveLength(2);
     const rolls = [...el.querySelectorAll('tbody tr td:first-child')].map((td) => td.textContent);
     expect(rolls).toEqual(['101', '102', '103']);
+    const heads = [...el.querySelectorAll('thead tr:first-child th')].map((x) => x.textContent);
+    expect(heads).toContain('Bangla'); // 1st + 2nd papers share one combined column
+    expect(heads).not.toContain('Bangla 1st Paper');
+    const sub = [...el.querySelectorAll('thead tr:nth-child(2) th')].slice(0, 3).map((x) => x.textContent);
+    expect(sub).toEqual(['1st', '2nd', 'Total']);
     expect(el.dataset.orientation).toBe('landscape');
   });
   it('print CSS keeps rows whole and repeats headers', () => {

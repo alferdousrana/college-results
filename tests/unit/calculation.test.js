@@ -190,3 +190,25 @@ describe('Phase 2 calculation cases', () => {
     expect(sheet.rows[0].result.state).toBe(OverallState.PASSED);
   });
 });
+
+describe('combined papers (Bangla 1st + 2nd)', () => {
+  const paper = (id, p) => ({ id, combine: { key: 'bangla', name: { en: 'Bangla' }, paper: p }, components: [{ id: 'cq', maxMarks: 70, passMarks: 23 }, { id: 'mcq', maxMarks: 30, passMarks: 10 }] });
+  const subjects = [paper('b1', '1st'), paper('b2', '2nd'), { id: 'ict', components: [{ id: 'w', maxMarks: 100, passMarks: 33 }] }];
+  const marks = (b2mcq) => ({ b1: { components: { cq: 60, mcq: 25 } }, b2: { components: { cq: 50, mcq: b2mcq } }, ict: { components: { w: 80 } } });
+  it('grades the combined total once in the GPA', () => {
+    const r = computeStudentResult({ subjects, marks: marks(20), policy, scale });
+    const b = r.subjectResults.find((x) => x.isCombined);
+    expect(r.subjectResults).toHaveLength(2);
+    expect(b.obtained).toBe(155); expect(b.fullMarks).toBe(200); expect(b.grade).toBe('A'); // 77.5%
+    expect(r.gpa).toBe(4.5); // (4 + 5) / 2
+  });
+  it('fails the combined subject when one paper fails a component', () => {
+    const r = computeStudentResult({ subjects, marks: marks(5), policy, scale });
+    const b = r.subjectResults.find((x) => x.isCombined);
+    expect(b.passed).toBe(false); expect(b.failedParts).toEqual(['b2']); expect(r.state).toBe(OverallState.FAILED);
+  });
+  it('is incomplete while a paper is missing', () => {
+    const m = marks(20); delete m.b2;
+    expect(computeStudentResult({ subjects, marks: m, policy, scale }).state).toBe(OverallState.INCOMPLETE);
+  });
+});

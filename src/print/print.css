@@ -69,3 +69,12 @@
 @media print { body.is-printing .page-head, body.is-printing .notice, body.is-printing .tabs, body.is-printing .lookup-hero { display: none !important; } }
 
 @media print { body:has(.print-area) .page-head, body:has(.print-area) .no-print { display: none !important; } }
+
+/* Round 4: combined papers, fit-to-width sheets */
+.pr-combined { font-weight: 700; vertical-align: middle; }
+.rs-note { font-size: 7pt; margin-top: 1mm !important; }
+.print-doc--sheet[data-paper='Legal'][data-orientation='landscape'] { width: 356mm; }
+@media print {
+  .print-doc--sheet .rs-table { zoom: var(--sheet-zoom, 1); }
+  .print-doc--sheet { width: auto !important; }
+}

@@ -3,17 +3,20 @@ import { computeResultSheet, DEFAULT_POLICY, REFERENCE_SCALE_5 } from '../domain
 import { buildStudentViewModel } from './view-models.js';
 
 const c = (id, type, label, maxMarks, passMarks, paper = null) => ({ id, type, label, maxMarks, passMarks, scale: 1, paper });
+const comb = (key, en, bn, paper) => ({ key, name: { en, bn }, paper });
 const SUBJECTS = [
-  { id: 'bangla', name: { en: 'Bangla', bn: 'বাংলা' }, components: [c('p1_cq', 'CQ', 'CQ', 70, 23, '1st'), c('p1_mcq', 'MCQ', 'MCQ', 30, 10, '1st'), c('p2_cq', 'CQ', 'CQ', 70, 23, '2nd'), c('p2_mcq', 'MCQ', 'MCQ', 30, 10, '2nd')] },
-  { id: 'english', name: { en: 'English', bn: 'ইংরেজি' }, components: [c('p1', 'CQ', '1st paper', 100, 33, '1st'), c('p2', 'CQ', '2nd paper', 100, 33, '2nd')] },
+  { id: 'bangla1', name: { en: 'Bangla 1st Paper', bn: 'বাংলা ১ম পত্র' }, combine: comb('bangla', 'Bangla', 'বাংলা', '1st'), components: [c('cq', 'CQ', 'CQ', 70, 23), c('mcq', 'MCQ', 'MCQ', 30, 10)] },
+  { id: 'bangla2', name: { en: 'Bangla 2nd Paper', bn: 'বাংলা ২য় পত্র' }, combine: comb('bangla', 'Bangla', 'বাংলা', '2nd'), components: [c('cq', 'CQ', 'CQ', 70, 23), c('mcq', 'MCQ', 'MCQ', 30, 10)] },
+  { id: 'english1', name: { en: 'English 1st Paper', bn: 'ইংরেজি ১ম পত্র' }, combine: comb('english', 'English', 'ইংরেজি', '1st'), components: [c('w', 'CQ', 'Written', 100, 33)] },
+  { id: 'english2', name: { en: 'English 2nd Paper', bn: 'ইংরেজি ২য় পত্র' }, combine: comb('english', 'English', 'ইংরেজি', '2nd'), components: [c('w', 'CQ', 'Written', 100, 33)] },
+  { id: 'ict', name: { en: 'ICT', bn: 'তথ্য ও যোগাযোগ প্রযুক্তি' }, components: [c('cq', 'CQ', 'CQ', 50, 17), c('mcq', 'MCQ', 'MCQ', 25, 8), c('prac', 'PRACTICAL', 'Practical', 25, 8)] },
   { id: 'physics', name: { en: 'Physics', bn: 'পদার্থবিজ্ঞান' }, components: [c('cq', 'CQ', 'CQ', 50, 17), c('mcq', 'MCQ', 'MCQ', 25, 8), c('prac', 'PRACTICAL', 'Practical', 25, 8)] },
-  { id: 'ict', name: { en: 'ICT', bn: 'আইসিটি' }, components: [c('cq', 'CQ', 'CQ', 50, 17), c('mcq', 'MCQ', 'MCQ', 25, 8), c('prac', 'PRACTICAL', 'Practical', 25, 8)] },
   { id: 'biology', name: { en: 'Biology', bn: 'জীববিজ্ঞান' }, components: [c('cq', 'CQ', 'CQ', 50, 17), c('mcq', 'MCQ', 'MCQ', 25, 8), c('prac', 'PRACTICAL', 'Practical', 25, 8)] },
 ];
 const MARKS = {
-  a: { bangla: [60, 26, 55, 24], english: [78, 71], physics: [41, 20, 23], ict: [44, 21, 24], biology: [39, 19, 22] },
-  b: { bangla: [52, 22, 48, 20], english: [65, 60], physics: [30, 7, 20], ict: [35, 18, 22], biology: [31, 15, 20] },
-  c: { bangla: [66, 28, 60, 27], english: [85, 80], physics: [46, 23, 24], ict: [47, 23, 25], biology: [44, 22, 24] },
+  a: { bangla1: [60, 26], bangla2: [55, 24], english1: [78], english2: [71], ict: [44, 21, 24], physics: [41, 20, 23], biology: [39, 19, 22] },
+  b: { bangla1: [52, 22], bangla2: [48, 20], english1: [65], english2: [60], ict: [35, 18, 22], physics: [30, 7, 20], biology: [31, 15, 20] },
+  c: { bangla1: [66, 28], bangla2: [60, 27], english1: [85], english2: [80], ict: [47, 23, 25], physics: [46, 23, 24], biology: [44, 22, 24] },
 };
 
 export function sampleData({ scale = REFERENCE_SCALE_5, policy = DEFAULT_POLICY } = {}) {

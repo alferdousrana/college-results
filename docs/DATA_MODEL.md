@@ -79,3 +79,12 @@ Publishing stores a calculation snapshot (`domain/calculation/snapshot.js`) — 
 * `sessionSubjects.definition` now also stores `order` (catalogue order) so marksheets list subjects consistently.
 * Enrollment `subjectIds` (optional) narrows a student's subjects within the group (electives); `findMissingMarks` and the engine respect it.
 * Composite indexes for every query used are in `firestore.indexes.json` (students by class/year/roll, users by role/status, sessions by year/state, notifications, audit by action).
+
+## Round 4 fields
+* `subjects`: `combine { key, name{en,bn}, paper }`, `groupRoles { groupId: compulsory|choice|fourth }`, `sheetColumns { groupId: columnKey }` (alternatives sharing a full-sheet column).
+* `groups.rules { choiceCount, requiresFourth, examsPerStudent }` — defaults copied into each result sheet.
+* `examSessions/{id}/sheets/{groupId}`: `subjectRoles`, `subjectColumns`, `choiceCount`, `requiresFourth`, `examsPerStudent`.
+* `sessionSubjects.definition.combine` (frozen copy).
+* `examSessions/{id}.deleting { reason, by, at }` while a whole sheet is being deleted.
+* Sessions are the `academicYears` collection (label such as `2026-2027`).
+* `config/starter-data.json`: the college's starter catalogue, loaded from Settings → Examinations.

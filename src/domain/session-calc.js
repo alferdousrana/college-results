@@ -18,20 +18,48 @@ export function subjectDefinition(sessionSubject) {
     passMarks: d.passMarks ?? null,
     countsTowardGpa: d.countsTowardGpa !== false,
     countsTowardTotal: d.countsTowardTotal !== false,
+    combine: d.combine?.key ? d.combine : null,   // { key, name{en,bn}, paper: '1st'|'2nd', passMarks? }
+    order: d.order ?? null,
   };
+}
+
+/** Role of a subject inside a group's sheet: 'compulsory' (default), 'choice' (student picks) or 'fourth' (4th-subject only). */
+export function subjectRole(sheet, subjectId) {
+  return sheet?.subjectRoles?.[subjectId] ?? 'compulsory';
 }
 
 export function activeEnrollments(bundle) {
   return bundle.enrollments.filter((e) => e.status !== 'withdrawn');
 }
 
-/** Subjects a given enrolled student sits. */
+/**
+ * Subjects a given enrolled student sits: every compulsory subject of the group, plus the
+ * student's chosen subjects (enrollment.subjectIds) and 4th subject (optionalSubjectId).
+ */
 export function studentSubjectIds(bundle, enrollment) {
   const sheet = bundle.sheets.find((s) => s.id === enrollment.groupId);
   const groupSubjects = sheet?.subjectIds ?? [];
-  return Array.isArray(enrollment.subjectIds) && enrollment.subjectIds.length
-    ? groupSubjects.filter((id) => enrollment.subjectIds.includes(id))
-    : groupSubjects;
+  const chosen = new Set([...(Array.isArray(enrollment.subjectIds) ? enrollment.subjectIds : []), enrollment.optionalSubjectId].filter(Boolean));
+  return groupSubjects.filter((id) => subjectRole(sheet, id) === 'compulsory' || chosen.has(id));
+}
+
+/** Checks one student's subject choices against the group rules. Returns { errors, warnings, examCount }. */
+export function checkStudentChoices(bundle, enrollment) {
+  const sheet = bundle.sheets.find((s) => s.id === enrollment.groupId);
+  const errors = [], warnings = [];
+  if (!sheet) return { errors, warnings, examCount: 0 };
+  const chosen = (enrollment.subjectIds ?? []).filter((id) => subjectRole(sheet, id) === 'choice' && id !== enrollment.optionalSubjectId);
+  const need = Number(sheet.choiceCount ?? 0);
+  if (need && chosen.length !== need) errors.push(`Roll ${enrollment.roll}: choose ${need} group subject(s) (${chosen.length} chosen).`);
+  if (sheet.requiresFourth && !enrollment.optionalSubjectId) errors.push(`Roll ${enrollment.roll}: choose the 4th subject.`);
+  if (enrollment.optionalSubjectId) {
+    const r = subjectRole(sheet, enrollment.optionalSubjectId);
+    if (!(sheet.subjectIds ?? []).includes(enrollment.optionalSubjectId) || r === 'compulsory') errors.push(`Roll ${enrollment.roll}: the 4th subject must be a choice or 4th-subject option.`);
+    if (chosen.includes(enrollment.optionalSubjectId)) errors.push(`Roll ${enrollment.roll}: the 4th subject is also chosen as a main subject.`);
+  }
+  const examCount = studentSubjectIds(bundle, enrollment).length;
+  if (sheet.examsPerStudent && examCount !== Number(sheet.examsPerStudent)) warnings.push(`Roll ${enrollment.roll}: sits ${examCount} papers (expected ${sheet.examsPerStudent}).`);
+  return { errors, warnings, examCount };
 }
 
 export function studentsForSubject(bundle, subjectId) {
@@ -120,7 +148,11 @@ export function validateForSharing(bundle, teachersById = {}) {
     rolls.set(String(e.roll), e.id);
     if (!bundle.sheets.some((sh) => sh.id === e.groupId)) errors.push({ code: 'student-group', message: `Roll ${e.roll} is not in a selected group.` });
     else if (!studentSubjectIds(bundle, e).length) errors.push({ code: 'student-subjects', message: `Roll ${e.roll} has no subjects.` });
-    if (e.optionalSubjectId && !studentSubjectIds(bundle, e).includes(e.optionalSubjectId)) warnings.push({ code: 'optional', message: `Roll ${e.roll}: optional subject is not one of the student's subjects.` });
+    else {
+      const c = checkStudentChoices(bundle, e);
+      c.errors.forEach((m) => errors.push({ code: 'student-choices', message: m }));
+      c.warnings.forEach((m) => warnings.push({ code: 'student-exam-count', message: m }));
+    }
   }
   const teacherIds = [...new Set(bundle.subjects.flatMap((s) => s.teacherIds ?? []))];
   return {

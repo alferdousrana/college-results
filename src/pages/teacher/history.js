@@ -17,7 +17,7 @@ export function render() {
     const [{ listTeacherSessions }, { loadAllCatalogues }] = await Promise.all([import('../../data/repositories/sessions-repository.js'), import('../../data/repositories/catalogue-repository.js')]);
     return { sessions: await listTeacherSessions(getState().authUser.uid, 200), cats: await loadAllCatalogues() };
   }, ({ sessions, cats }) => dataTable({ rows: sessions, searchKeys: [(r) => L(r.title)], empty: tt('No examinations yet.', 'এখনো কোনো পরীক্ষা নেই।'),
-    filters: [{ key: 'yearId', label: tt('Year', 'বছর'), options: cats.years.map((y) => ({ value: y.id, label: y.label })) }],
+    filters: [{ key: 'yearId', label: tt('Session', 'সেশন'), options: cats.years.map((y) => ({ value: y.id, label: y.label })) }],
     columns: [
       { key: 'title', label: tt('Examination', 'পরীক্ষা'), render: (r) => L(r.title) }, { key: 'classId', label: tt('Class', 'শ্রেণি'), render: (r) => nameOf(cats.classes, r.classId) },
       { key: 'state', label: tt('Status', 'অবস্থা'), render: (r) => examStateBadge(r.state) }, { key: 'updatedAt', label: tt('Updated', 'হালনাগাদ'), render: (r) => fmtDate(r.updatedAt) },

@@ -74,7 +74,7 @@ async def main():
         # Subject editor
         await page.goto(f'{BASE}/#/admin/subjects'); await page.wait_for_timeout(800)
         await page.get_by_role('button', name='Add subject').click(); await page.get_by_role('button', name='MCQ + Practical', exact=True).click()
-        check('subject editor builds MCQ + Practical', await page.locator('.comp-table tbody tr').count() == 2)
+        check('subject editor builds MCQ + Practical', await page.locator('.comp-editor tbody tr').count() == 2)
         await page.keyboard.press('Escape')
         # Wizard: create a Test examination and reach the share confirmation
         await page.goto(f'{BASE}/#/admin/sheet/new'); await page.wait_for_timeout(1200)

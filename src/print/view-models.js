@@ -18,7 +18,20 @@ export function buildStudentViewModel({ exam, enrollment, student = null, defs, 
       groupId: enrollment.groupId, custom,
     },
     subjects: subjectIds.map((id) => {
-      const r = byId[id]; const d = defs[id];
+      const r = byId[id];
+      if (r.isCombined) {
+        // Combined subject (Bangla 1st + 2nd): one grade, papers kept for printing.
+        const parts = r.parts.map((p) => {
+          const d = defs[p.subjectId];
+          const comps = Object.fromEntries((p.result.componentResults ?? []).map((c) => [c.componentId, c.raw]));
+          return { id: p.subjectId, name: d?.name ?? p.subjectId, paper: p.paper, fullMarks: p.result.fullMarks, obtained: p.result.obtained ?? null, state: p.result.state, highest: highest[p.subjectId] ?? null,
+            components: (d?.components ?? []).map((c) => ({ id: c.id, type: c.type ?? null, label: c.label ?? c.id, maxMarks: c.maxMarks, paper: p.paper, value: p.result.state === 'ABSENT' ? 'AB' : comps[c.id] ?? null })) };
+        });
+        return { id, name: r.name, code: null, isCombined: true, parts, fullMarks: r.fullMarks, highest: highest[id] ?? null,
+          components: parts.flatMap((p) => p.components), obtained: r.obtained ?? null, point: r.point ?? null, grade: r.grade ?? null,
+          passed: r.passed ?? null, state: r.state, isOptional: Boolean(r.isOptional), failedComponents: r.failedComponents ?? [] };
+      }
+      const d = defs[id];
       const comps = Object.fromEntries((r.componentResults ?? []).map((c) => [c.componentId, c.raw]));
       return {
         id, name: d.name, code: d.code ?? null, fullMarks: r.fullMarks, highest: highest[id] ?? null,

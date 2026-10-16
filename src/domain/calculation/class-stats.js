@@ -7,6 +7,10 @@ export function highestMarksBySubject(studentResults) {
     for (const s of res.subjectResults ?? []) {
       if (s.state !== SubjectState.COMPLETE || s.obtained == null) continue;
       if (out[s.subjectId] == null || s.obtained > out[s.subjectId]) out[s.subjectId] = s.obtained;
+      for (const p of s.parts ?? []) {
+        const r = p.result;
+        if (r.state === SubjectState.COMPLETE && r.obtained != null && (out[p.subjectId] == null || r.obtained > out[p.subjectId])) out[p.subjectId] = r.obtained;
+      }
     }
   }
   return out;

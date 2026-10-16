@@ -1,0 +1,1590 @@
+{
+ "$comment": "Starter data for Shirjug Azimunnesa Girls' School & College, taken from the college's result sheets. Mark distributions and pass marks are STARTING VALUES — check every subject before the first examination.",
+ "institution": {
+  "name": {
+   "en": "Shirjug Azimunnesa Girls' School and College",
+   "bn": "শিরযুগ আজিমুন্নেছা গার্লস স্কুল এ্যান্ড কলেজ"
+  },
+  "address": {
+   "en": "Shekherhat, Jhalokathi",
+   "bn": "শেখেরহাট, ঝালকাঠি"
+  }
+ },
+ "academicYears": [
+  {
+   "id": "2026-2027",
+   "label": "2026-2027",
+   "order": 2026,
+   "active": true
+  }
+ ],
+ "groups": [
+  {
+   "id": "science",
+   "name": {
+    "en": "Science",
+    "bn": "বিজ্ঞান"
+   },
+   "order": 1,
+   "active": true,
+   "rules": {
+    "choiceCount": 1,
+    "requiresFourth": true,
+    "examsPerStudent": 9
+   }
+  },
+  {
+   "id": "humanities",
+   "name": {
+    "en": "Humanities",
+    "bn": "মানবিক"
+   },
+   "order": 2,
+   "active": true,
+   "rules": {
+    "choiceCount": 3,
+    "requiresFourth": true,
+    "examsPerStudent": 9
+   }
+  },
+  {
+   "id": "business",
+   "name": {
+    "en": "Business Studies",
+    "bn": "ব্যবসায় শিক্ষা"
+   },
+   "order": 3,
+   "active": true,
+   "rules": {
+    "choiceCount": 1,
+    "requiresFourth": true,
+    "examsPerStudent": 9
+   }
+  }
+ ],
+ "classes": [
+  {
+   "id": "class-11",
+   "name": {
+    "en": "Class Eleven",
+    "bn": "একাদশ শ্রেণি"
+   },
+   "order": 11,
+   "active": true,
+   "groupIds": [
+    "science",
+    "humanities",
+    "business"
+   ]
+  },
+  {
+   "id": "class-12",
+   "name": {
+    "en": "Class Twelve",
+    "bn": "দ্বাদশ শ্রেণি"
+   },
+   "order": 12,
+   "active": true,
+   "groupIds": [
+    "science",
+    "humanities",
+    "business"
+   ]
+  }
+ ],
+ "examDefinitions": [
+  {
+   "id": "half-yearly",
+   "name": {
+    "en": "Half-Yearly Examination",
+    "bn": "অর্ধবার্ষিক পরীক্ষা"
+   },
+   "order": 1,
+   "active": true
+  },
+  {
+   "id": "annual",
+   "name": {
+    "en": "Annual Examination",
+    "bn": "বার্ষিক পরীক্ষা"
+   },
+   "order": 2,
+   "active": true
+  },
+  {
+   "id": "pre-test",
+   "name": {
+    "en": "Pre-Test Examination",
+    "bn": "প্রাক-নির্বাচনী পরীক্ষা"
+   },
+   "order": 3,
+   "active": true
+  },
+  {
+   "id": "test",
+   "name": {
+    "en": "Test Examination",
+    "bn": "নির্বাচনী পরীক্ষা"
+   },
+   "order": 4,
+   "active": true
+  }
+ ],
+ "subjects": [
+  {
+   "id": "bangla-1",
+   "name": {
+    "en": "Bangla 1st Paper",
+    "bn": "বাংলা ১ম পত্র"
+   },
+   "code": null,
+   "order": 1,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "science",
+    "humanities",
+    "business"
+   ],
+   "groupRoles": {
+    "science": "compulsory",
+    "humanities": "compulsory",
+    "business": "compulsory"
+   },
+   "sheetColumns": {},
+   "combine": {
+    "key": "bangla",
+    "name": {
+     "en": "Bangla",
+     "bn": "বাংলা"
+    },
+    "paper": "1st"
+   },
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 70,
+     "passMarks": 23,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 30,
+     "passMarks": 10,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": false,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "bangla-2",
+   "name": {
+    "en": "Bangla 2nd Paper",
+    "bn": "বাংলা ২য় পত্র"
+   },
+   "code": null,
+   "order": 2,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "science",
+    "humanities",
+    "business"
+   ],
+   "groupRoles": {
+    "science": "compulsory",
+    "humanities": "compulsory",
+    "business": "compulsory"
+   },
+   "sheetColumns": {},
+   "combine": {
+    "key": "bangla",
+    "name": {
+     "en": "Bangla",
+     "bn": "বাংলা"
+    },
+    "paper": "2nd"
+   },
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 70,
+     "passMarks": 23,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 30,
+     "passMarks": 10,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": false,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "english-1",
+   "name": {
+    "en": "English 1st Paper",
+    "bn": "ইংরেজি ১ম পত্র"
+   },
+   "code": null,
+   "order": 3,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "science",
+    "humanities",
+    "business"
+   ],
+   "groupRoles": {
+    "science": "compulsory",
+    "humanities": "compulsory",
+    "business": "compulsory"
+   },
+   "sheetColumns": {},
+   "combine": {
+    "key": "english",
+    "name": {
+     "en": "English",
+     "bn": "ইংরেজি"
+    },
+    "paper": "1st"
+   },
+   "components": [
+    {
+     "id": "written",
+     "type": "CQ",
+     "label": "Written",
+     "maxMarks": 100,
+     "passMarks": 33,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": false,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "english-2",
+   "name": {
+    "en": "English 2nd Paper",
+    "bn": "ইংরেজি ২য় পত্র"
+   },
+   "code": null,
+   "order": 4,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "science",
+    "humanities",
+    "business"
+   ],
+   "groupRoles": {
+    "science": "compulsory",
+    "humanities": "compulsory",
+    "business": "compulsory"
+   },
+   "sheetColumns": {},
+   "combine": {
+    "key": "english",
+    "name": {
+     "en": "English",
+     "bn": "ইংরেজি"
+    },
+    "paper": "2nd"
+   },
+   "components": [
+    {
+     "id": "written",
+     "type": "CQ",
+     "label": "Written",
+     "maxMarks": 100,
+     "passMarks": 33,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": false,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "ict",
+   "name": {
+    "en": "Information & Communication Technology",
+    "bn": "তথ্য ও যোগাযোগ প্রযুক্তি"
+   },
+   "code": null,
+   "order": 5,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "science",
+    "humanities",
+    "business"
+   ],
+   "groupRoles": {
+    "science": "compulsory",
+    "humanities": "compulsory",
+    "business": "compulsory"
+   },
+   "sheetColumns": {},
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 50,
+     "passMarks": 17,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "prac",
+     "type": "PRACTICAL",
+     "label": "Practical",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": false,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "physics",
+   "name": {
+    "en": "Physics",
+    "bn": "পদার্থবিজ্ঞান"
+   },
+   "code": null,
+   "order": 6,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "science"
+   ],
+   "groupRoles": {
+    "science": "compulsory"
+   },
+   "sheetColumns": {},
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 50,
+     "passMarks": 17,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "prac",
+     "type": "PRACTICAL",
+     "label": "Practical",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": false,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "chemistry",
+   "name": {
+    "en": "Chemistry",
+    "bn": "রসায়ন"
+   },
+   "code": null,
+   "order": 7,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "science"
+   ],
+   "groupRoles": {
+    "science": "compulsory"
+   },
+   "sheetColumns": {},
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 50,
+     "passMarks": 17,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "prac",
+     "type": "PRACTICAL",
+     "label": "Practical",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": false,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "biology",
+   "name": {
+    "en": "Biology",
+    "bn": "জীববিজ্ঞান"
+   },
+   "code": null,
+   "order": 8,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "science"
+   ],
+   "groupRoles": {
+    "science": "choice"
+   },
+   "sheetColumns": {},
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 50,
+     "passMarks": 17,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "prac",
+     "type": "PRACTICAL",
+     "label": "Practical",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "higher-math",
+   "name": {
+    "en": "Higher Mathematics",
+    "bn": "উচ্চতর গণিত"
+   },
+   "code": null,
+   "order": 9,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "science"
+   ],
+   "groupRoles": {
+    "science": "choice"
+   },
+   "sheetColumns": {},
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 50,
+     "passMarks": 17,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "prac",
+     "type": "PRACTICAL",
+     "label": "Practical",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "economics",
+   "name": {
+    "en": "Economics",
+    "bn": "অর্থনীতি"
+   },
+   "code": null,
+   "order": 10,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "humanities"
+   ],
+   "groupRoles": {
+    "humanities": "choice"
+   },
+   "sheetColumns": {},
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 70,
+     "passMarks": 23,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 30,
+     "passMarks": 10,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "civics",
+   "name": {
+    "en": "Civics & Good Governance",
+    "bn": "পৌরনীতি ও সুশাসন"
+   },
+   "code": null,
+   "order": 11,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "humanities"
+   ],
+   "groupRoles": {
+    "humanities": "choice"
+   },
+   "sheetColumns": {},
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 70,
+     "passMarks": 23,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 30,
+     "passMarks": 10,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "sociology",
+   "name": {
+    "en": "Sociology",
+    "bn": "সমাজবিজ্ঞান"
+   },
+   "code": null,
+   "order": 12,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "humanities"
+   ],
+   "groupRoles": {
+    "humanities": "choice"
+   },
+   "sheetColumns": {
+    "humanities": "soc"
+   },
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 70,
+     "passMarks": 23,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 30,
+     "passMarks": 10,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "social-work",
+   "name": {
+    "en": "Social Work",
+    "bn": "সমাজকর্ম"
+   },
+   "code": null,
+   "order": 13,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "humanities"
+   ],
+   "groupRoles": {
+    "humanities": "choice"
+   },
+   "sheetColumns": {
+    "humanities": "soc"
+   },
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 70,
+     "passMarks": 23,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 30,
+     "passMarks": 10,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "islamic-history",
+   "name": {
+    "en": "Islamic History & Culture",
+    "bn": "ইসলামের ইতিহাস ও সংস্কৃতি"
+   },
+   "code": null,
+   "order": 14,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "humanities"
+   ],
+   "groupRoles": {
+    "humanities": "choice"
+   },
+   "sheetColumns": {
+    "humanities": "hist"
+   },
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 70,
+     "passMarks": 23,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 30,
+     "passMarks": 10,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "history",
+   "name": {
+    "en": "History",
+    "bn": "ইতিহাস"
+   },
+   "code": null,
+   "order": 15,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "humanities"
+   ],
+   "groupRoles": {
+    "humanities": "choice"
+   },
+   "sheetColumns": {
+    "humanities": "hist"
+   },
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 70,
+     "passMarks": 23,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 30,
+     "passMarks": 10,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "logic",
+   "name": {
+    "en": "Logic",
+    "bn": "যুক্তিবিদ্যা"
+   },
+   "code": null,
+   "order": 16,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "humanities"
+   ],
+   "groupRoles": {
+    "humanities": "choice"
+   },
+   "sheetColumns": {},
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 70,
+     "passMarks": 23,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 30,
+     "passMarks": 10,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "business-org",
+   "name": {
+    "en": "Business Organisation & Management",
+    "bn": "ব্যবসায় সংগঠন ও ব্যবস্থাপনা"
+   },
+   "code": null,
+   "order": 17,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "business"
+   ],
+   "groupRoles": {
+    "business": "compulsory"
+   },
+   "sheetColumns": {},
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 70,
+     "passMarks": 23,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 30,
+     "passMarks": 10,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": false,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "accounting",
+   "name": {
+    "en": "Accounting",
+    "bn": "হিসাববিজ্ঞান"
+   },
+   "code": null,
+   "order": 18,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "business"
+   ],
+   "groupRoles": {
+    "business": "compulsory"
+   },
+   "sheetColumns": {},
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 70,
+     "passMarks": 23,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 30,
+     "passMarks": 10,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": false,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "production-marketing",
+   "name": {
+    "en": "Production Management & Marketing",
+    "bn": "উৎপাদন ব্যবস্থাপনা ও বিপণন"
+   },
+   "code": null,
+   "order": 19,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "business"
+   ],
+   "groupRoles": {
+    "business": "choice"
+   },
+   "sheetColumns": {},
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 70,
+     "passMarks": 23,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 30,
+     "passMarks": 10,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "finance-banking",
+   "name": {
+    "en": "Finance, Banking & Insurance",
+    "bn": "ফিন্যান্স, ব্যাংকিং ও বীমা"
+   },
+   "code": null,
+   "order": 20,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "business"
+   ],
+   "groupRoles": {
+    "business": "choice"
+   },
+   "sheetColumns": {},
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 70,
+     "passMarks": 23,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 30,
+     "passMarks": 10,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "geography",
+   "name": {
+    "en": "Geography",
+    "bn": "ভূগোল"
+   },
+   "code": null,
+   "order": 21,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "science",
+    "humanities",
+    "business"
+   ],
+   "groupRoles": {
+    "science": "fourth",
+    "humanities": "choice",
+    "business": "choice"
+   },
+   "sheetColumns": {},
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 50,
+     "passMarks": 17,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "prac",
+     "type": "PRACTICAL",
+     "label": "Practical",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "psychology",
+   "name": {
+    "en": "Psychology",
+    "bn": "মনোবিজ্ঞান"
+   },
+   "code": null,
+   "order": 22,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "science",
+    "humanities"
+   ],
+   "groupRoles": {
+    "science": "fourth",
+    "humanities": "choice"
+   },
+   "sheetColumns": {
+    "humanities": "hum-opt"
+   },
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 50,
+     "passMarks": 17,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "prac",
+     "type": "PRACTICAL",
+     "label": "Practical",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "agriculture",
+   "name": {
+    "en": "Agriculture Studies",
+    "bn": "কৃষিশিক্ষা"
+   },
+   "code": null,
+   "order": 23,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "science",
+    "humanities",
+    "business"
+   ],
+   "groupRoles": {
+    "science": "fourth",
+    "humanities": "choice",
+    "business": "choice"
+   },
+   "sheetColumns": {
+    "humanities": "hum-opt"
+   },
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 50,
+     "passMarks": 17,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "prac",
+     "type": "PRACTICAL",
+     "label": "Practical",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "islamic-studies",
+   "name": {
+    "en": "Islamic Studies",
+    "bn": "ইসলাম শিক্ষা"
+   },
+   "code": null,
+   "order": 24,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "humanities"
+   ],
+   "groupRoles": {
+    "humanities": "choice"
+   },
+   "sheetColumns": {
+    "humanities": "hum-opt"
+   },
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 70,
+     "passMarks": 23,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 30,
+     "passMarks": 10,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "home-science",
+   "name": {
+    "en": "Home Science",
+    "bn": "গার্হস্থ্য বিজ্ঞান"
+   },
+   "code": null,
+   "order": 25,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "humanities",
+    "business"
+   ],
+   "groupRoles": {
+    "humanities": "choice",
+    "business": "choice"
+   },
+   "sheetColumns": {
+    "humanities": "hum-opt"
+   },
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 50,
+     "passMarks": 17,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "prac",
+     "type": "PRACTICAL",
+     "label": "Practical",
+     "maxMarks": 25,
+     "passMarks": 8,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  },
+  {
+   "id": "sanskrit",
+   "name": {
+    "en": "Sanskrit",
+    "bn": "সংস্কৃত"
+   },
+   "code": null,
+   "order": 26,
+   "classIds": [
+    "class-11",
+    "class-12"
+   ],
+   "groupIds": [
+    "humanities"
+   ],
+   "groupRoles": {
+    "humanities": "choice"
+   },
+   "sheetColumns": {
+    "humanities": "hum-opt"
+   },
+   "combine": null,
+   "components": [
+    {
+     "id": "cq",
+     "type": "CQ",
+     "label": "CQ",
+     "maxMarks": 70,
+     "passMarks": 23,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    },
+    {
+     "id": "mcq",
+     "type": "MCQ",
+     "label": "MCQ",
+     "maxMarks": 30,
+     "passMarks": 10,
+     "scale": 1,
+     "required": true,
+     "enabled": true,
+     "paper": null
+    }
+   ],
+   "passMarks": null,
+   "active": true,
+   "optionalEligible": true,
+   "countsTowardGpa": true,
+   "countsTowardTotal": true
+  }
+ ]
+}

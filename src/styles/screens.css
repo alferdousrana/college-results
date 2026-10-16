@@ -228,3 +228,9 @@ progress { accent-color: var(--c-brand); width: 100px; height: 8px; vertical-ali
 
 .pref-row > .check-chip { justify-self: start; }
 .notice + .stats { margin-top: var(--space-4); }
+.btn--danger-ghost { background: transparent; color: var(--c-bad); border-color: color-mix(in srgb, var(--c-bad) 40%, transparent); }
+.btn--danger-ghost:hover:not(:disabled) { background: var(--c-bad-soft); }
+.choice-cell { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.group-rules { margin-bottom: var(--space-3); align-items: flex-end; }
+.subject-roles td { vertical-align: middle; }
+.text-good { color: var(--c-good); font-weight: 600; }

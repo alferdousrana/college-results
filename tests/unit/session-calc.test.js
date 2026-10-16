@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { findMissingMarks, validateForSharing, buildCalcInputs, subjectProgress } from '../../src/domain/session-calc.js';
+import { findMissingMarks, validateForSharing, buildCalcInputs, subjectProgress, checkStudentChoices, studentSubjectIds } from '../../src/domain/session-calc.js';
 
 const comps = [{ id: 'cq', label: 'CQ', maxMarks: 70 }, { id: 'mcq', label: 'MCQ', maxMarks: 30 }];
 const bundle = {
   session: { state: 'mark_entry_in_progress' },
-  sheets: [{ id: 'science', subjectIds: ['phy', 'bio'] }, { id: 'humanities', subjectIds: ['eco'] }],
+  sheets: [{ id: 'science', subjectIds: ['phy', 'bio'], subjectRoles: { bio: 'choice' } }, { id: 'humanities', subjectIds: ['eco'] }],
   subjects: [{ id: 'phy', definition: { name: 'Phy', components: comps }, teacherIds: ['t1'] }, { id: 'bio', definition: { name: 'Bio', components: comps }, teacherIds: ['t2'] },
     { id: 'eco', definition: { name: 'Eco', components: comps }, teacherIds: [] }],
-  enrollments: [{ id: 's1', roll: '101', name: { en: 'A' }, groupId: 'science' }, { id: 's2', roll: '102', name: { en: 'B' }, groupId: 'science', subjectIds: ['phy'] },
+  enrollments: [{ id: 's1', roll: '101', name: { en: 'A' }, groupId: 'science', subjectIds: ['bio'] }, { id: 's2', roll: '102', name: { en: 'B' }, groupId: 'science' },
     { id: 's3', roll: '201', name: { en: 'C' }, groupId: 'humanities' }],
 };
 
@@ -40,5 +40,29 @@ describe('sharing checks', () => {
   it('passes a complete setup', () => {
     const b = { ...bundle, subjects: bundle.subjects.map((s) => ({ ...s, teacherIds: ['t1'] })) };
     expect(validateForSharing(b, { t1: { status: 'active' } }).errors).toEqual([]);
+  });
+});
+
+describe('group subject choices', () => {
+  const b = {
+    session: {}, subjects: [],
+    sheets: [{ id: 'science', subjectIds: ['b1', 'phy', 'math', 'bio', 'agri'], subjectRoles: { math: 'choice', bio: 'choice', agri: 'fourth' }, choiceCount: 1, requiresFourth: true, examsPerStudent: 4 }],
+    enrollments: [],
+  };
+  const check = (e) => checkStudentChoices(b, { roll: '1', groupId: 'science', ...e });
+  it('accepts one main choice plus a 4th subject', () => {
+    const r = check({ subjectIds: ['math', 'bio'], optionalSubjectId: 'bio' });
+    expect(r.errors).toEqual([]); expect(r.examCount).toBe(4);
+  });
+  it('requires the right number of choices and a 4th subject', () => {
+    expect(check({ subjectIds: [] }).errors.length).toBe(2);
+    expect(check({ subjectIds: ['math', 'bio'], optionalSubjectId: 'phy' }).errors.join()).toMatch(/4th subject must be/);
+  });
+  it('counts papers and warns on a different total', () => {
+    expect(check({ subjectIds: ['math', 'agri'], optionalSubjectId: 'agri' }).warnings).toEqual([]);
+    expect(check({ subjectIds: ['math'], optionalSubjectId: null }).warnings.length).toBe(1);
+  });
+  it('a student only sits compulsory + chosen subjects', () => {
+    expect(studentSubjectIds(b, { groupId: 'science', subjectIds: ['bio'], optionalSubjectId: 'agri' })).toEqual(['b1', 'phy', 'bio', 'agri']);
   });
 });

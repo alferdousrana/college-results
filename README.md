@@ -8,13 +8,13 @@ Change the language (English / বাংলা), light or dark appearance, table
 
 **Signing in.** The developer sets up your administrator account once. Sign in from **Staff sign in** with your email and password.
 
-**Before the first examination.** In **Settings**, fill in **Institution** (names in English and Bangla, address, logo, signatures, seal) and review **Grades and pass rules**. The grade scale starts with the values from the sample marksheet; check them against your institution's rules and save. Then set up **Classes & groups** (years, classes, groups such as Science, Humanities and Business Studies, and examination names), **Subjects** (each with its CQ, MCQ, practical or other parts, full marks and pass marks) and **Assignments** (which approved teacher teaches which subject).
+**Before the first examination.** The quickest start is **Settings → Examinations → Load starter data**: it adds the sessions, classes, the three groups with their subject rules, examination names and all subjects. Then: In **Settings**, fill in **Institution** (names in English and Bangla, address, logo, signatures, seal) and review **Grades and pass rules**. The grade scale starts with the values from the sample marksheet; check them against your institution's rules and save. Check **Classes & groups** (sessions such as 2026-2027, classes, groups and how many subjects a student chooses, examination names), **Subjects** (each part's full and pass marks, the subject's role in each group, and whether it is the 1st or 2nd paper of Bangla or English) and **Assignments** (which approved teacher teaches which subject or paper).
 
 **Teachers.** Teachers can request an account; requests appear under **Teachers → Requests**. Choose **Approve** or **Reject**. You can also **Create teacher account** yourself. A teacher can only enter marks for the subjects assigned to them.
 
 **Students.** **Students** lists one class and year at a time. Use **Add student**, **Edit**, or the status list to mark a student inactive, transferred or left — records are never deleted. Each student keeps a permanent **Student ID**, so a changed roll number never mixes up results. To add many students, use **Import JSON**: download the template, fill it in, choose the file and check the preview. Every problem is listed by row before anything is saved, and you decide whether students who already exist are updated or skipped.
 
-**Creating a result sheet.** Choose **Create new result sheet** and follow the five steps: examination details, subjects for each group, teachers, students (the class's students load automatically) and review. Save as a draft at any time. When the review says everything is in place, choose **Share with all teachers**; a summary of subjects, teachers and student count is shown before you confirm.
+**Creating a result sheet.** Choose **Create new result sheet** and follow the five steps: examination details, subjects for each group (compulsory, chosen by the student, or 4th subject only), teachers, students (the class's students load automatically; choose each student's subjects and 4th subject, or use **Choices for all** for a whole group) and review. Save as a draft at any time. When the review says everything is in place, choose **Share with all teachers**; a summary of subjects, teachers and student count is shown before you confirm.
 
 **During mark entry.** Open the result sheet to see each subject's progress, who is assigned and whether it is submitted. **Missing marks** lists every missing mark with the student, subject, part and teacher. You can change a subject's teacher; marks already entered are kept.
 
@@ -22,7 +22,9 @@ Change the language (English / বাংলা), light or dark appearance, table
 
 **Corrections.** On a published sheet choose **Correct a published result**, give the reason, change the marks, and publish again. Students keep seeing the earlier version until the corrected one is published. Every version and reason is listed under **Publications**.
 
-**Printing.** **Print** on a result sheet opens the full result sheet for each group and individual marksheets, in English or Bangla. Choose **Save as PDF** in the print window to keep a PDF. **Settings → Print design** controls fonts, sizes, borders, logo and signature positions, margins and which details appear.
+**Printing.** **Print** on a result sheet opens the full result sheet for each group (grade points and GPA, always fitted to the page width on A4 or Legal) and individual marksheets with every mark, in English or Bangla. Choose **Save as PDF** in the print window to keep a PDF. **Settings → Print design** controls fonts, sizes, borders, logo and signature positions, margins and which details appear.
+
+**Deleting.** Drafts can be deleted. A finished or test result sheet can be deleted with **Delete sheet**, a reason and typing DELETE. Students, subjects, teachers and class items can be deleted only while nothing uses them; otherwise mark them inactive or disable them, so old results stay complete.
 
 **History.** **Result archive** finds published results by year, class, examination, group, roll or name. **Audit log** shows who changed what and when.
 

@@ -12,7 +12,7 @@ import { openModal } from '../../ui/components/modal.js';
 import { toast } from '../../ui/components/toast.js';
 import { navigate } from '../../app/router.js';
 import { actor, byId, friendlyError, nameOf } from '../_shared.js';
-import { validateForSharing } from '../../domain/session-calc.js';
+import { validateForSharing, checkStudentChoices, subjectRole } from '../../domain/session-calc.js';
 import { ExamState } from '../../domain/exam-lifecycle.js';
 import { shareFlow } from './share-flow.js';
 
@@ -38,7 +38,7 @@ async function init(sid, body) {
   const teachers = await listTeachers();
   const tById = byId(teachers);
   const st = { sid, step: 0, dirty: false, details: { yearId: cats.years.find((y) => y.active)?.id ?? cats.years.at(-1)?.id ?? '', classId: '', examDefId: '', titleEn: '', titleBn: '', heldOn: '', startDate: '', endDate: '', notes: '' },
-    groupIds: [], groupSubjects: {}, teachers: {}, roster: new Map(), rosterLoadedFor: null };
+    groupIds: [], groupSubjects: {}, groupRoles: {}, groupRules: {}, teachers: {}, roster: new Map(), rosterLoadedFor: null };
 
   if (sid) {
     const b = await sessions.loadSessionBundle(sid);
@@ -46,7 +46,11 @@ async function init(sid, body) {
     const s = b.session;
     Object.assign(st.details, { yearId: s.yearId, classId: s.classId, examDefId: s.examDefId, titleEn: s.title?.en ?? '', titleBn: s.title?.bn ?? '', heldOn: s.heldOn ?? '', startDate: s.startDate ?? '', endDate: s.endDate ?? '', notes: s.notes ?? '' });
     st.groupIds = b.sheets.map((x) => x.id);
-    b.sheets.forEach((x) => { st.groupSubjects[x.id] = [...(x.subjectIds ?? [])]; });
+    b.sheets.forEach((x) => {
+      st.groupSubjects[x.id] = [...(x.subjectIds ?? [])];
+      st.groupRoles[x.id] = { ...(x.subjectRoles ?? {}) };
+      st.groupRules[x.id] = { choiceCount: x.choiceCount ?? 0, requiresFourth: Boolean(x.requiresFourth), examsPerStudent: x.examsPerStudent ?? null };
+    });
     b.subjects.forEach((x) => { st.teachers[x.id] = [...(x.teacherIds ?? [])]; });
     b.enrollments.forEach((e) => st.roster.set(e.id, { ...e, studentId: e.studentId ?? e.id, include: true }));
     st.rosterLoadedFor = `${s.yearId}|${s.classId}`;
@@ -95,7 +99,7 @@ async function init(sid, body) {
 
   function stepDetails() {
     const d = st.details;
-    const year = selectField({ label: tt('Academic year', 'শিক্ষাবর্ষ'), name: 'year', required: true, value: d.yearId, options: [{ value: '', label: '—' }, ...cats.years.map((y) => ({ value: y.id, label: y.label }))] });
+    const year = selectField({ label: tt('Session', 'সেশন'), name: 'year', required: true, value: d.yearId, options: [{ value: '', label: '—' }, ...cats.years.map((y) => ({ value: y.id, label: y.label }))] });
     const klass = selectField({ label: tt('Class', 'শ্রেণি'), name: 'class', required: true, value: d.classId, options: [{ value: '', label: '—' }, ...cats.classes.filter((c) => c.active !== false).map((c) => ({ value: c.id, label: L(c.name) }))] });
     const exam = selectField({ label: tt('Examination name', 'পরীক্ষার নাম'), name: 'exam', required: true, value: d.examDefId, options: [{ value: '', label: '—' }, ...cats.examDefs.filter((e) => e.active !== false).map((e) => ({ value: e.id, label: L(e.name) }))] });
     const titleEn = field({ label: tt('Title (English)', 'শিরোনাম (ইংরেজি)'), name: 'titleEn', value: d.titleEn, hint: tt('Printed on marksheets. Filled in automatically; you can change it.', 'মার্কশিটে ছাপা হবে। স্বয়ংক্রিয়ভাবে বসে; বদলানো যায়।') });
@@ -130,17 +134,46 @@ async function init(sid, body) {
     return (s.components ?? []).filter((c) => c.enabled !== false).map((c) => `${c.label} ${c.maxMarks}${c.passMarks != null ? ` (${tt('pass', 'পাস')} ${c.passMarks})` : ''}`).join(' · ');
   }
 
+  const ROLE_LABELS = () => ({ compulsory: tt('Compulsory', 'আবশ্যিক'), choice: tt('Student chooses', 'শিক্ষার্থী বাছবে'), fourth: tt('4th subject only', 'শুধু ৪র্থ বিষয়') });
+  function ensureGroupDefaults(g) {
+    const options = subjectsFor(g);
+    if (!st.groupSubjects[g]) st.groupSubjects[g] = options.map((x) => x.id);
+    if (!st.groupRoles[g]) st.groupRoles[g] = Object.fromEntries(options.map((x) => [x.id, x.groupRoles?.[g] ?? 'compulsory']));
+    if (!st.groupRules[g]) {
+      const r = cats.groups.find((x) => x.id === g)?.rules ?? {};
+      st.groupRules[g] = { choiceCount: r.choiceCount ?? 0, requiresFourth: Boolean(r.requiresFourth), examsPerStudent: r.examsPerStudent ?? null };
+    }
+    return options;
+  }
+
   function stepSubjects() {
-    return h('div', {}, st.groupIds.map((g) => {
-      const options = subjectsFor(g);
-      if (!st.groupSubjects[g]) st.groupSubjects[g] = options.map((s) => s.id);
+    return h('div', {}, h('p', { class: 'muted' }, tt('For each group choose the subjects, whether each is compulsory or chosen by the student, and the group rules. Papers such as Bangla 1st and 2nd are separate subjects and are combined automatically for the grade.',
+      'প্রতিটি বিভাগের বিষয়, কোনটি আবশ্যিক আর কোনটি শিক্ষার্থী বাছবে, এবং বিভাগের নিয়ম ঠিক করুন। বাংলা ১ম ও ২য় পত্রের মতো পত্রগুলো আলাদা বিষয়, গ্রেডের সময় স্বয়ংক্রিয়ভাবে একসাথে হিসাব হয়।')),
+    st.groupIds.map((g) => {
+      const options = ensureGroupDefaults(g);
+      const rules = st.groupRules[g];
+      const num = (label, key, attrs) => h('label', { class: 'field field--inline' }, h('span', { class: 'field__label' }, label),
+        h('input', { class: 'input input--compact', type: 'number', min: 0, value: rules[key] ?? '', ...attrs, onchange: (e) => { rules[key] = e.target.value === '' ? null : Number(e.target.value); markDirty(); } }));
       return h('fieldset', { class: 'fieldset subject-pick' }, h('legend', {}, nameOf(cats.groups, g)),
-        options.length ? options.map((s) => {
-          const cb = h('input', { type: 'checkbox', class: 'checkbox', checked: st.groupSubjects[g].includes(s.id), onchange: (e) => {
-            st.groupSubjects[g] = e.target.checked ? [...new Set([...st.groupSubjects[g], s.id])] : st.groupSubjects[g].filter((x) => x !== s.id); markDirty(); } });
-          return h('label', { class: 'subject-option' }, cb, h('span', {}, h('strong', {}, L(s.name)), s.code ? ` (${s.code})` : '', h('small', { class: 'muted' }, compSummary(s))));
-        }) : h('p', { class: 'muted' }, tt('No active subjects for this class and group. Add them in Subjects.', 'এই শ্রেণি ও বিভাগের কোনো সক্রিয় বিষয় নেই। বিষয় পৃষ্ঠায় যোগ করুন।')));
+        h('div', { class: 'row-actions group-rules' },
+          num(tt('Subjects each student chooses', 'প্রত্যেক শিক্ষার্থী যতটি বিষয় বাছবে'), 'choiceCount', { max: 10 }),
+          h('label', { class: 'check-chip' }, h('input', { type: 'checkbox', class: 'checkbox', checked: rules.requiresFourth, onchange: (e) => { rules.requiresFourth = e.target.checked; markDirty(); } }), h('span', {}, tt('Every student has a 4th subject', 'প্রত্যেকের ৪র্থ বিষয় আছে'))),
+          num(tt('Papers per student', 'প্রতি শিক্ষার্থীর পত্র সংখ্যা'), 'examsPerStudent', { max: 30 })),
+        options.length ? h('table', { class: 'data-table subject-roles' }, h('thead', {}, h('tr', {}, h('th', {}, tt('Include', 'অন্তর্ভুক্ত')), h('th', {}, tt('Subject', 'বিষয়')), h('th', {}, tt('Role in this group', 'এই বিভাগে ভূমিকা')), h('th', {}, tt('Marks', 'নম্বর')))),
+          h('tbody', {}, options.map((x) => {
+            const cb = h('input', { type: 'checkbox', class: 'checkbox', checked: st.groupSubjects[g].includes(x.id), 'aria-label': L(x.name), onchange: (e) => {
+              st.groupSubjects[g] = e.target.checked ? [...new Set([...st.groupSubjects[g], x.id])] : st.groupSubjects[g].filter((y) => y !== x.id); markDirty(); } });
+            const role = h('select', { class: 'input input--sm', 'aria-label': tt('Role', 'ভূমিকা'), onchange: (e) => { st.groupRoles[g][x.id] = e.target.value; markDirty(); } },
+              Object.entries(ROLE_LABELS()).map(([v, l]) => h('option', { value: v, selected: (st.groupRoles[g][x.id] ?? 'compulsory') === v }, l)));
+            return h('tr', {}, h('td', {}, cb), h('td', {}, h('strong', {}, L(x.name)), x.code ? h('span', { class: 'muted small' }, ` ${x.code}`) : null, x.combine?.key ? h('div', { class: 'muted small' }, tt('Combined into {n}', '{n}-এ একত্রে হিসাব', { n: L(x.combine.name) })) : null),
+              h('td', {}, role), h('td', { class: 'muted small' }, compSummary(x)));
+          }))) : h('p', { class: 'muted' }, tt('No active subjects for this class and group. Add them in Subjects.', 'এই শ্রেণি ও বিভাগের কোনো সক্রিয় বিষয় নেই। বিষয় পৃষ্ঠায় যোগ করুন।')));
     }));
+  }
+
+  /** The group rules as the validation helpers expect them. */
+  function pseudoSheets() {
+    return st.groupIds.map((g) => ({ id: g, subjectIds: st.groupSubjects[g] ?? [], subjectRoles: st.groupRoles[g] ?? {}, ...(st.groupRules[g] ?? {}) }));
   }
 
   function stepTeachers() {
@@ -184,29 +217,53 @@ async function init(sid, body) {
           h('div', { class: 'table-toolbar__end' },
             button(tt('Reload class students', 'শ্রেণির শিক্ষার্থী আবার আনুন'), { size: 'sm', onClick: () => load(true) }),
             button(tt('Add student', 'শিক্ষার্থী যোগ'), { size: 'sm', icon: 'plus', onClick: () => quickAdd() }),
+            ...st.groupIds.filter(hasChoices).map((g) => button(tt('Choices for all: {g}', 'সবার বাছাই: {g}', { g: nameOf(cats.groups, g) }), { size: 'sm', onClick: () => pickSubjects(null, g) })),
             h('a', { class: 'btn btn--ghost btn--sm', href: `#/admin/students/import?year=${encodeURIComponent(st.details.yearId)}&class=${encodeURIComponent(st.details.classId)}`, onclick: (e) => { if (st.dirty && !confirm(tt('Save the draft first? Unsaved changes in this wizard will be lost.', 'আগে খসড়া সংরক্ষণ করবেন? এই ধাপের অসংরক্ষিত পরিবর্তন হারাবে।'))) e.preventDefault(); } }, tt('Import JSON', 'JSON ইমপোর্ট')))),
         rows.length ? h('div', { class: 'table-scroll' }, h('table', { class: 'data-table roster' },
-          h('thead', {}, h('tr', {}, h('th', {}, tt('Include', 'অন্তর্ভুক্ত')), h('th', {}, tt('Roll', 'রোল')), h('th', {}, tt('Name', 'নাম')), h('th', {}, tt('Group', 'বিভাগ')), h('th', {}, tt('Optional subject', 'ঐচ্ছিক বিষয়')), h('th', {}, tt('Subjects', 'বিষয়')))),
+          h('thead', {}, h('tr', {}, h('th', {}, tt('Include', 'অন্তর্ভুক্ত')), h('th', {}, tt('Roll', 'রোল')), h('th', {}, tt('Name', 'নাম')), h('th', {}, tt('Group', 'বিভাগ')), h('th', {}, tt('Chosen subjects and 4th subject', 'বাছাই করা বিষয় ও ৪র্থ বিষয়')))),
           h('tbody', {}, rows.map((r) => {
-            const groupSubs = st.groupSubjects[r.groupId] ?? [];
-            const opt = h('select', { class: 'input input--sm', 'aria-label': tt('Optional subject', 'ঐচ্ছিক বিষয়'), onchange: (e) => { r.optionalSubjectId = e.target.value || null; markDirty(); } },
-              h('option', { value: '' }, '—'), groupSubs.map((id) => h('option', { value: id, selected: r.optionalSubjectId === id }, nameOf(cats.subjects, id))));
+            const check = r.groupId ? checkStudentChoices({ sheets: pseudoSheets() }, r) : { errors: [], warnings: [], examCount: 0 };
             return h('tr', { class: dup.has(r.roll) && r.include ? 'is-error' : '' },
               h('td', {}, h('input', { type: 'checkbox', class: 'checkbox', checked: r.include, 'aria-label': tt('Include roll {r}', 'রোল {r} অন্তর্ভুক্ত', { r: r.roll }), onchange: (e) => { r.include = e.target.checked; markDirty(); paintRoster(); } })),
               h('td', {}, r.roll, dup.has(r.roll) && r.include ? h('span', { class: 'badge badge--bad' }, tt('duplicate', 'পুনরাবৃত্ত')) : null),
               h('td', {}, L(r.name)),
-              h('td', {}, h('select', { class: 'input input--sm', 'aria-label': tt('Group', 'বিভাগ'), onchange: (e) => { r.groupId = e.target.value; r.optionalSubjectId = null; markDirty(); paintRoster(); } },
+              h('td', {}, h('select', { class: 'input input--sm', 'aria-label': tt('Group', 'বিভাগ'), onchange: (e) => { r.groupId = e.target.value; r.optionalSubjectId = null; r.subjectIds = null; markDirty(); paintRoster(); } },
                 h('option', { value: '' }, '—'), groupOpts.map((o) => h('option', { value: o.value, selected: r.groupId === o.value }, o.label)))),
-              h('td', {}, opt),
-              h('td', {}, button(r.subjectIds?.length ? tt('{n} chosen', '{n}টি বাছা', { n: r.subjectIds.length }) : tt('All group subjects', 'বিভাগের সব বিষয়'), { size: 'sm', onClick: () => pickSubjects(r) })));
+              h('td', {}, h('div', { class: 'choice-cell' },
+                h('span', { class: 'small' }, choiceSummary(r) || tt('Compulsory subjects only', 'শুধু আবশ্যিক বিষয়')),
+                h('span', { class: `badge badge--${check.errors.length ? 'bad' : check.warnings.length ? 'warn' : 'good'}`, title: [...check.errors, ...check.warnings].join('\n') }, tt('{n} papers', '{n}টি পত্র', { n: check.examCount })),
+                r.groupId && hasChoices(r.groupId) ? button(tt('Choose', 'বাছুন'), { size: 'sm', onClick: () => pickSubjects(r) }) : null)));
           })))) : h('p', { class: 'muted' }, tt('No students in this class yet. Add them or import a JSON file.', 'এই শ্রেণিতে এখনো শিক্ষার্থী নেই। যোগ করুন বা JSON ফাইল ইমপোর্ট করুন।')));
     };
-    const pickSubjects = (r) => {
-      const all = st.groupSubjects[r.groupId] ?? [];
-      const cg = checkGroup({ label: tt('Subjects this student sits', 'শিক্ষার্থীর বিষয়সমূহ'), name: 'stsubs', options: all.map((id) => ({ value: id, label: nameOf(cats.subjects, id) })), values: r.subjectIds?.length ? r.subjectIds : all });
-      openModal({ title: tt('Subjects for roll {r}', 'রোল {r}-এর বিষয়', { r: r.roll }), content: cg.el, actions: [
-        { label: t('common.cancel'), onClick: () => true },
-        { label: t('common.save'), kind: 'primary', onClick: () => { const v = cg.value; r.subjectIds = v.length === all.length ? null : v; markDirty(); paintRoster(); return true; } }] });
+    const hasChoices = (g) => Object.values(st.groupRoles[g] ?? {}).some((x) => x !== 'compulsory') || st.groupRules[g]?.requiresFourth;
+    const choiceSummary = (r) => {
+      const chosen = (r.subjectIds ?? []).filter((id) => id !== r.optionalSubjectId);
+      return [chosen.length ? chosen.map((id) => nameOf(cats.subjects, id)).join(', ') : null, r.optionalSubjectId ? `${tt('4th', '৪র্থ')}: ${nameOf(cats.subjects, r.optionalSubjectId)}` : null].filter(Boolean).join(' · ');
+    };
+    /** Choice dialog for one student, or for every student of a group (bulk). */
+    const pickSubjects = (r, bulkGroup = null) => {
+      const g = bulkGroup ?? r.groupId;
+      const sheet = pseudoSheets().find((x) => x.id === g);
+      const choiceIds = sheet.subjectIds.filter((id) => subjectRole(sheet, id) === 'choice');
+      const fourthIds = sheet.subjectIds.filter((id) => subjectRole(sheet, id) !== 'compulsory');
+      const cur = r ?? {};
+      const curChosen = (cur.subjectIds ?? []).filter((id) => id !== cur.optionalSubjectId);
+      const need = Number(sheet.choiceCount ?? 0);
+      const cg = choiceIds.length ? checkGroup({ label: need ? tt('Choose {n} subject(s)', '{n}টি বিষয় বাছুন', { n: need }) : tt('Chosen subjects', 'বাছাই করা বিষয়'), name: 'stsubs', options: choiceIds.map((id) => ({ value: id, label: nameOf(cats.subjects, id) })), values: curChosen }) : null;
+      const fourth = selectField({ label: tt('4th subject', '৪র্থ বিষয়'), name: 'st4', value: cur.optionalSubjectId ?? '', options: [{ value: '', label: '—' }, ...fourthIds.map((id) => ({ value: id, label: nameOf(cats.subjects, id) }))] });
+      const err = h('p', { class: 'field__error', hidden: true });
+      openModal({ title: bulkGroup ? tt('Same choices for every student in {g}', '{g}-এর সব শিক্ষার্থীর জন্য একই বাছাই', { g: nameOf(cats.groups, g) }) : tt('Subjects for roll {r}', 'রোল {r}-এর বিষয়', { r: r.roll }),
+        content: h('div', {}, cg?.el, fourth.el, err, bulkGroup ? h('p', { class: 'muted small' }, tt('You can still change individual students afterwards.', 'পরে আলাদা শিক্ষার্থীর বাছাই বদলানো যাবে।')) : null),
+        actions: [{ label: t('common.cancel'), onClick: () => true }, { label: t('common.save'), kind: 'primary', onClick: () => {
+          const chosen = cg?.value ?? [];
+          const f = fourth.value || null;
+          if (need && chosen.length !== need) { err.textContent = tt('Choose exactly {n}.', 'ঠিক {n}টি বাছুন।', { n: need }); err.hidden = false; return false; }
+          if (f && chosen.includes(f)) { err.textContent = tt('The 4th subject cannot also be a chosen subject.', '৪র্থ বিষয় বাছাই করা বিষয়ের মধ্যে থাকতে পারবে না।'); err.hidden = false; return false; }
+          if (sheet.requiresFourth && !f) { err.textContent = tt('Choose the 4th subject.', '৪র্থ বিষয় বাছুন।'); err.hidden = false; return false; }
+          const targets = bulkGroup ? [...st.roster.values()].filter((x) => x.include && x.groupId === g) : [r];
+          for (const x of targets) { x.subjectIds = [...chosen, ...(f ? [f] : [])]; x.optionalSubjectId = f; }
+          markDirty(); paintRoster(); return true;
+        } }] });
     };
     const quickAdd = () => {
       const f = { en: field({ label: tt('Name (English)', 'নাম (ইংরেজি)'), name: 'qen', required: true }), bn: field({ label: tt('Name (Bangla)', 'নাম (বাংলা)'), name: 'qbn' }),
@@ -236,10 +293,15 @@ async function init(sid, body) {
       yearId: d.yearId, classId: d.classId, examDefId: d.examDefId,
       title: { en: d.titleEn || `${nameOf(cats.examDefs, d.examDefId)} ${d.yearId}`, bn: d.titleBn || null },
       heldOn: d.heldOn || null, startDate: d.startDate || null, endDate: d.endDate || null, notes: d.notes || null,
-      groups: st.groupIds.map((g) => ({ groupId: g, subjectIds: (st.groupSubjects[g] ?? []).filter((x) => subjectsFor(g).some((s) => s.id === x)) })),
+      groups: st.groupIds.map((g) => {
+        const ids = (st.groupSubjects[g] ?? []).filter((x) => subjectsFor(g).some((s) => s.id === x));
+        return { groupId: g, subjectIds: ids, subjectRoles: Object.fromEntries(ids.map((id) => [id, st.groupRoles[g]?.[id] ?? 'compulsory'])),
+          subjectColumns: Object.fromEntries(ids.map((id) => [id, cats.subjects.find((x) => x.id === id)?.sheetColumns?.[g] ?? id])),
+          choiceCount: st.groupRules[g]?.choiceCount ?? 0, requiresFourth: Boolean(st.groupRules[g]?.requiresFourth), examsPerStudent: st.groupRules[g]?.examsPerStudent ?? null };
+      }),
       subjects: subjectIds.map((id) => {
         const s = cats.subjects.find((x) => x.id === id);
-        return { subjectId: id, definition: { name: s.name, code: s.code ?? null, order: s.order ?? null, components: s.components ?? [], passMarks: s.passMarks ?? null, countsTowardGpa: s.countsTowardGpa !== false, countsTowardTotal: s.countsTowardTotal !== false },
+        return { subjectId: id, definition: { name: s.name, code: s.code ?? null, order: s.order ?? null, combine: s.combine?.key ? s.combine : null, components: s.components ?? [], passMarks: s.passMarks ?? null, countsTowardGpa: s.countsTowardGpa !== false, countsTowardTotal: s.countsTowardTotal !== false },
           teacherIds: st.teachers[id] ?? [], teacherNames: Object.fromEntries((st.teachers[id] ?? []).map((x) => [x, tById[x]?.displayName ?? x])) };
       }),
       roster: [...st.roster.values()].filter((r) => r.include && st.groupIds.includes(r.groupId)),
@@ -248,7 +310,7 @@ async function init(sid, body) {
 
   function stepReview() {
     const p = buildPayload();
-    const pseudo = { sheets: p.groups.map((g) => ({ id: g.groupId, subjectIds: g.subjectIds })), subjects: p.subjects.map((s) => ({ id: s.subjectId, definition: s.definition, teacherIds: s.teacherIds })),
+    const pseudo = { sheets: p.groups.map((g) => ({ id: g.groupId, ...g })), subjects: p.subjects.map((s) => ({ id: s.subjectId, definition: s.definition, teacherIds: s.teacherIds })),
       enrollments: p.roster.map((r) => ({ ...r, id: r.studentId })) };
     const check = validateForSharing(pseudo, tById);
     const excluded = [...st.roster.values()].filter((r) => r.include && !st.groupIds.includes(r.groupId)).length;

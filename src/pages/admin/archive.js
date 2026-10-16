@@ -26,7 +26,7 @@ async function init(root) {
   const [cats, retention] = await Promise.all([loadAllCatalogues(), getSetting('retention')]);
   const sessions = await listSessions({ state: ['published', 'archived'], limit: 500 });
   const opt = (list, f = (x) => L(x.name)) => [{ value: '', label: tt('Any', 'যেকোনো') }, ...list.map((x) => ({ value: x.id, label: f(x) }))];
-  const yearF = selectField({ label: tt('Year', 'বছর'), name: 'hy', options: opt(cats.years, (y) => y.label) });
+  const yearF = selectField({ label: tt('Session', 'সেশন'), name: 'hy', options: opt(cats.years, (y) => y.label) });
   const classF = selectField({ label: tt('Class', 'শ্রেণি'), name: 'hc', options: opt(cats.classes) });
   const examF = selectField({ label: tt('Examination', 'পরীক্ষা'), name: 'he', options: opt(cats.examDefs) });
   const groupF = selectField({ label: tt('Group', 'বিভাগ'), name: 'hg', options: opt(cats.groups) });
@@ -37,7 +37,7 @@ async function init(root) {
     if (!rollF.value) {
       out.replaceChildren(dataTable({ rows: list, empty: tt('No published results match.', 'কোনো প্রকাশিত ফলাফল মেলেনি।'), columns: [
         { key: 'title', label: tt('Examination', 'পরীক্ষা'), render: (s) => L(s.title) }, { key: 'classId', label: tt('Class', 'শ্রেণি'), render: (s) => nameOf(cats.classes, s.classId) },
-        { key: 'yearId', label: tt('Year', 'বছর'), sortable: true }, { key: 'state', label: tt('Status', 'অবস্থা'), render: (s) => examStateBadge(s.state) },
+        { key: 'yearId', label: tt('Session', 'সেশন'), sortable: true }, { key: 'state', label: tt('Status', 'অবস্থা'), render: (s) => examStateBadge(s.state) },
         { key: 'publishedAt', label: tt('Published', 'প্রকাশ'), render: (s) => fmtDate(s.publishedAt) }, { key: 'v', label: tt('Version', 'সংস্করণ'), render: (s) => fmtNum(s.publishedVersion) },
         { key: 'go', label: '', render: (s) => h('div', { class: 'row-actions' }, h('a', { class: 'btn btn--ghost btn--sm', href: `#/results?sid=${encodeURIComponent(s.id)}` }, tt('Open', 'খুলুন')), h('a', { class: 'btn btn--ghost btn--sm', href: `#/admin/sheet?sid=${encodeURIComponent(s.id)}&tab=history` }, tt('History', 'ইতিহাস'))) },
       ] }).el);

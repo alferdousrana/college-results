@@ -18,7 +18,7 @@ export const title = 'nav.students';
 export const IMPORT_TEMPLATE = {
   students: [
     { roll: 101, name: 'Student Name', nameBn: 'শিক্ষার্থীর নাম', groupId: 'science', fatherName: "Father's name", motherName: "Mother's name",
-      dob: '2009-05-14', section: 'A', shift: 'Day', optionalSubjectId: 'biology', studentCode: '', admissionNumber: '', admissionDate: '', customFields: {} },
+      dob: '2009-05-14', subjectIds: ['higher-math'], optionalSubjectId: 'biology', studentCode: '', customFields: {} },
   ],
 };
 
@@ -34,7 +34,7 @@ async function init(body, query) {
   const [{ loadAllCatalogues }, { getSetting }, repo] = await Promise.all([import('../../data/repositories/catalogue-repository.js'), import('../../data/repositories/settings-repository.js'), import('../../data/repositories/students-repository.js')]);
   const cats = await loadAllCatalogues();
   const fieldDefs = ((await getSetting('studentFields')).fields ?? []).filter((d) => d.enabled !== false);
-  const yearF = selectField({ label: tt('Import into year', 'যে বছরে ইমপোর্ট'), name: 'iy', value: query.get('year') ?? cats.years.find((y) => y.active)?.id, options: cats.years.map((y) => ({ value: y.id, label: y.label })) });
+  const yearF = selectField({ label: tt('Import into session', 'যে সেশনে ইমপোর্ট'), name: 'iy', value: query.get('year') ?? cats.years.find((y) => y.active)?.id, options: cats.years.map((y) => ({ value: y.id, label: y.label })) });
   const classF = selectField({ label: tt('Class', 'শ্রেণি'), name: 'ic', value: query.get('class') ?? '', options: cats.classes.map((c) => ({ value: c.id, label: L(c.name) })) });
   const modeF = selectField({ label: tt('When a student already exists', 'শিক্ষার্থী আগে থেকে থাকলে'), name: 'im', value: 'skip', options: [{ value: 'skip', label: tt('Skip them (keep current data)', 'বাদ দিন (বর্তমান তথ্য রাখুন)') }, { value: 'update', label: tt('Update them with the file', 'ফাইলের তথ্য দিয়ে হালনাগাদ করুন') }],
     hint: tt('Matching uses the student ID when the file has one, otherwise the roll in this class and year.', 'ফাইলে আইডি থাকলে আইডি দিয়ে, না থাকলে এই শ্রেণি ও বছরের রোল দিয়ে মেলানো হয়।') });

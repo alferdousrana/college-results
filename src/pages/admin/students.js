@@ -5,6 +5,7 @@ import { pageHeader, button, linkButton, keyValue } from '../../ui/components/pa
 import { loadingState, errorState } from '../../ui/components/states.js';
 import { dataTable } from '../../ui/components/data-table.js';
 import { openModal, promptText } from '../../ui/components/modal.js';
+import { confirmDialog } from '../../ui/components/dialog.js';
 import { selectField } from '../../ui/components/form.js';
 import { actor, friendlyError, nameOf, run } from '../_shared.js';
 import { openStudentForm } from './student-form.js';
@@ -25,7 +26,7 @@ async function init(root, query) {
   const fieldDefs = (await getSetting('studentFields')).fields ?? [];
   const saved = JSON.parse(sessionStorage.getItem(prefKey) || '{}');
   const sel = { yearId: saved.yearId ?? cats.years.find((y) => y.active)?.id ?? cats.years.at(-1)?.id, classId: saved.classId ?? cats.classes[0]?.id, status: saved.status ?? 'active' };
-  const yearF = selectField({ label: tt('Year', 'বছর'), name: 'sy', value: sel.yearId, options: cats.years.map((y) => ({ value: y.id, label: y.label })) });
+  const yearF = selectField({ label: tt('Session', 'সেশন'), name: 'sy', value: sel.yearId, options: cats.years.map((y) => ({ value: y.id, label: y.label })) });
   const classF = selectField({ label: tt('Class', 'শ্রেণি'), name: 'sc', value: sel.classId, options: cats.classes.map((c) => ({ value: c.id, label: L(c.name) })) });
   const statusF = selectField({ label: tt('Status', 'অবস্থা'), name: 'ss', value: sel.status, options: [['active', tt('Active', 'সক্রিয়')], ['inactive', tt('Inactive', 'নিষ্ক্রিয়')], ['transferred', tt('Transferred', 'বদলি')], ['left', tt('Left', 'চলে গেছে')], ['graduated', tt('Graduated', 'উত্তীর্ণ হয়ে গেছে')], ['', tt('All', 'সব')]].map(([value, label]) => ({ value, label })) });
   let cursor = null;
@@ -39,7 +40,12 @@ async function init(root, query) {
       { key: 'group', label: tt('Group', 'বিভাগ'), render: (r) => nameOf(cats.groups, r.current?.groupId) },
       { key: 'studentCode', label: tt('Student ID', 'আইডি') },
       { key: 'status', label: tt('Status', 'অবস্থা'), render: (r) => h('span', { class: `badge badge--${r.status === 'active' ? 'good' : 'neutral'}` }, r.status) },
-      { key: 'a', label: '', render: (r) => h('div', { class: 'row-actions' }, button(tt('Edit', 'সম্পাদনা'), { size: 'sm', onClick: () => openStudentForm({ student: r, cats, fieldDefs, onSaved: reload }) }), statusMenu(r)) },
+      { key: 'a', label: '', render: (r) => h('div', { class: 'row-actions' }, button(tt('Edit', 'সম্পাদনা'), { size: 'sm', onClick: () => openStudentForm({ student: r, cats, fieldDefs, onSaved: reload }) }), statusMenu(r),
+        button(tt('Delete', 'মুছুন'), { size: 'sm', kind: 'danger-ghost', onClick: async () => {
+          if (!(await confirmDialog({ title: tt('Delete {n}?', '{n}-কে মুছবেন?', { n: r.nameEn }), body: tt('Only possible if the student is in no result sheet. Otherwise mark them inactive.', 'শিক্ষার্থী কোনো ফলাফল শিটে না থাকলেই মোছা যাবে। নইলে নিষ্ক্রিয় করুন।'), danger: true, confirmText: tt('Delete', 'মুছুন') }))) return;
+          const { deleteStudent } = await import('../../data/repositories/deletion-repository.js');
+          if (await run(() => deleteStudent(actor(), r.id), { success: tt('Student deleted', 'শিক্ষার্থী মুছে ফেলা হয়েছে') }) !== undefined) reload();
+        } })) },
     ] });
   const statusMenu = (r) => h('select', { class: 'input input--sm', 'aria-label': tt('Change status', 'অবস্থা বদলান'), onchange: async (e) => {
     const to = e.target.value; e.target.value = '';
@@ -55,7 +61,7 @@ async function init(root, query) {
     openModal({ title: r.nameEn, size: 'l', content: h('div', {},
       keyValue([[tt('Bangla name', 'বাংলা নাম'), r.nameBn], [tt('Student ID', 'শিক্ষার্থী আইডি'), r.studentCode], [tt("Father's name", 'পিতার নাম'), r.fatherName], [tt("Mother's name", 'মাতার নাম'), r.motherName],
         [tt('Date of birth', 'জন্ম তারিখ'), r.dob], [tt('Class', 'শ্রেণি'), `${nameOf(cats.classes, r.current?.classId)} · ${r.current?.yearId} · ${tt('roll', 'রোল')} ${r.current?.roll}`],
-        [tt('Admission', 'ভর্তি'), [r.admission?.number, r.admission?.date].filter(Boolean).join(' · ')], ...custom]),
+        ...custom]),
       h('h3', {}, tt('Published results', 'প্রকাশিত ফলাফল')),
       hist.length ? h('table', { class: 'mini-table' }, h('tbody', {}, hist.map((x) => h('tr', {}, h('td', {}, L(x.title)), h('td', {}, `${tt('Roll', 'রোল')} ${x.roll}`), h('td', {}, `GPA ${fmtNum(x.gpa, 2)} (${x.grade})`), h('td', {}, fmtDate(x.publishedAt)),
         h('td', {}, h('a', { href: `#/results?sid=${encodeURIComponent(x.sessionId)}&student=${encodeURIComponent(r.id)}&group=${encodeURIComponent(x.groupId)}` }, tt('Marksheet', 'মার্কশিট')))))))

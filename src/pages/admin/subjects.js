@@ -5,8 +5,9 @@ import { pageHeader, button } from '../../ui/components/page.js';
 import { asyncSection } from '../../ui/components/states.js';
 import { dataTable } from '../../ui/components/data-table.js';
 import { openModal } from '../../ui/components/modal.js';
-import { field, checkGroup } from '../../ui/components/form.js';
+import { field, checkGroup, selectField } from '../../ui/components/form.js';
 import { actor, run } from '../_shared.js';
+import { confirmDialog } from '../../ui/components/dialog.js';
 import { validateSubjectDefinition } from '../../domain/validation/settings-validation.js';
 import { C } from '../../data/paths.js';
 
@@ -36,7 +37,12 @@ export function render() {
         { key: 'cls', label: tt('Classes', 'শ্রেণি'), render: (r) => (r.classIds ?? []).map((id) => L(cats.classes.find((x) => x.id === id)?.name) || id).join(', ') || tt('All', 'সব') },
         { key: 'grp', label: tt('Groups', 'বিভাগ'), render: (r) => (r.groupIds ?? []).map((id) => L(cats.groups.find((x) => x.id === id)?.name) || id).join(', ') || tt('All', 'সব') },
         { key: 'active', label: tt('Active', 'সক্রিয়'), render: (r) => (r.active === false ? tt('No', 'না') : tt('Yes', 'হ্যাঁ')) },
-        { key: 'e', label: '', render: (r) => button(tt('Edit', 'সম্পাদনা'), { size: 'sm', onClick: () => edit(r, cats, paint) }) },
+        { key: 'e', label: '', render: (r) => h('div', { class: 'row-actions' }, button(tt('Edit', 'সম্পাদনা'), { size: 'sm', onClick: () => edit(r, cats, paint) }),
+          button(tt('Delete', 'মুছুন'), { size: 'sm', kind: 'danger-ghost', onClick: async () => {
+            if (!(await confirmDialog({ title: tt('Delete {n}?', '{n} মুছবেন?', { n: L(r.name) }), body: tt('Only possible if no result sheet uses this subject. Its default teacher assignments are removed too.', 'কোনো ফলাফল শিটে বিষয়টি ব্যবহার না হলেই মোছা যাবে। এর শিক্ষক-দায়িত্বও মুছে যাবে।'), danger: true, confirmText: tt('Delete', 'মুছুন') }))) return;
+            const { deleteSubject } = await import('../../data/repositories/deletion-repository.js');
+            if (await run(() => deleteSubject(actor(), r.id), { success: tt('Subject deleted', 'বিষয় মুছে ফেলা হয়েছে') }) !== undefined) paint();
+          } })) },
       ] }).el);
     root.replaceChildren(pageHeader({ title: t('nav.subjects'), subtitle: tt('Changes apply to new result sheets. Sheets already created keep the configuration they were created with.', 'পরিবর্তন নতুন ফলাফল শিটে প্রযোজ্য। আগে তৈরি শিট নিজ কনফিগারেশন রাখে।') }), body);
   };
@@ -56,13 +62,34 @@ function edit(subject, cats, refresh) {
   const optional = field({ label: tt('Can be taken as the optional (4th) subject', 'ঐচ্ছিক (৪র্থ) বিষয় হিসেবে নেওয়া যায়'), name: 'sopt', type: 'checkbox', value: Boolean(subject?.optionalEligible) });
   const gpa = field({ label: tt('Counts toward GPA', 'জিপিএ-তে গণ্য'), name: 'sgpa', type: 'checkbox', value: subject ? subject.countsTowardGpa !== false : true });
   const total = field({ label: tt('Counts toward total marks', 'মোট নম্বরে গণ্য'), name: 'stot', type: 'checkbox', value: subject ? subject.countsTowardTotal !== false : true });
+  // Combined subject (e.g. Bangla 1st + Bangla 2nd graded together as "Bangla").
+  const comb = subject?.combine ?? {};
+  const combOn = field({ label: tt('This is one paper of a combined subject (e.g. Bangla 1st paper)', 'এটি একটি যৌথ বিষয়ের একটি পত্র (যেমন বাংলা ১ম পত্র)'), name: 'scomb', type: 'checkbox', value: Boolean(comb.key) });
+  const combKey = field({ label: tt('Combined subject code (same for both papers)', 'যৌথ বিষয়ের কোড (দুই পত্রে একই)'), name: 'sckey', value: comb.key ?? '', hint: tt('For example: bangla. Use the same code on Bangla 1st and Bangla 2nd.', 'যেমন: bangla। বাংলা ১ম ও ২য় পত্রে একই কোড দিন।') });
+  const combEn = field({ label: tt('Combined name (English)', 'যৌথ নাম (ইংরেজি)'), name: 'scen', value: comb.name?.en ?? '' });
+  const combBn = field({ label: tt('Combined name (Bangla)', 'যৌথ নাম (বাংলা)'), name: 'scbn', value: comb.name?.bn ?? '' });
+  const combPaper = selectField({ label: tt('Paper', 'পত্র'), name: 'scp', value: comb.paper ?? '1st', options: [{ value: '1st', label: tt('1st paper', '১ম পত্র') }, { value: '2nd', label: tt('2nd paper', '২য় পত্র') }] });
+  const combBox = h('div', { class: 'form-grid' }, combKey.el, combEn.el, combBn.el, combPaper.el);
+  const syncComb = () => { combBox.hidden = !combOn.input.checked; };
+  combOn.input.addEventListener('change', syncComb); syncComb();
+  // Role of the subject in each group + which full-sheet column it shares.
+  const roleRows = cats.groups.map((g) => {
+    const role = h('select', { class: 'input input--sm', 'aria-label': `${L(g.name)} — ${tt('role', 'ভূমিকা')}` },
+      [['compulsory', tt('Compulsory', 'আবশ্যিক')], ['choice', tt('Student chooses', 'শিক্ষার্থী বাছবে')], ['fourth', tt('4th subject only', 'শুধু ৪র্থ বিষয়')]].map(([v, l]) => h('option', { value: v, selected: (subject?.groupRoles?.[g.id] ?? 'compulsory') === v }, l)));
+    const col = h('input', { class: 'input input--sm', value: subject?.sheetColumns?.[g.id] ?? '', placeholder: tt('own column', 'নিজস্ব কলাম'), 'aria-label': `${L(g.name)} — ${tt('shared column', 'যৌথ কলাম')}` });
+    return { g, role, col, el: h('tr', {}, h('td', {}, L(g.name)), h('td', {}, role), h('td', {}, col)) };
+  });
+  const rolesBox = h('div', {}, h('div', { class: 'table-scroll' }, h('table', { class: 'data-table comp-table' },
+    h('thead', {}, h('tr', {}, h('th', {}, tt('Group', 'বিভাগ')), h('th', {}, tt('Role', 'ভূমিকা')), h('th', {}, tt('Shared column on full sheet', 'পূর্ণ শিটে যৌথ কলাম')))),
+    h('tbody', {}, roleRows.map((r) => r.el)))),
+    h('p', { class: 'muted small' }, tt('Only groups ticked above apply. To print alternatives in one column (e.g. Sociology / Social Work), give them the same shared column code, such as soc.', 'শুধু উপরে বাছা বিভাগগুলো প্রযোজ্য। বিকল্প বিষয় এক কলামে ছাপাতে (যেমন সমাজবিজ্ঞান / সমাজকর্ম) একই যৌথ কলাম কোড দিন, যেমন soc।')));
   const compBox = h('div');
   const errBox = h('div');
   const paintComps = () => {
     const full = comps.filter((c) => c.enabled !== false).reduce((a, c) => a + c.maxMarks * (c.scale ?? 1), 0);
     compBox.replaceChildren(
       h('div', { class: 'row-actions wrap' }, h('span', { class: 'muted' }, tt('Quick start:', 'দ্রুত শুরু:')), PRESETS().map(([label, list]) => button(label, { size: 'sm', onClick: () => { comps = list.map(([type, max, p], i) => ({ id: `${type.toLowerCase()}${i ? i : ''}`, type, label: type === 'PRACTICAL' ? 'Practical' : type, maxMarks: max, passMarks: p, scale: 1, required: true, enabled: true, paper: null })); paintComps(); } }))),
-      h('div', { class: 'table-scroll' }, h('table', { class: 'data-table comp-table' },
+      h('div', { class: 'table-scroll' }, h('table', { class: 'data-table comp-table comp-editor' },
         h('thead', {}, h('tr', {}, [tt('Type', 'ধরন'), tt('Label', 'নাম'), tt('Paper', 'পত্র'), tt('Full marks', 'পূর্ণমান'), tt('Pass marks', 'পাস নম্বর'), tt('Weight', 'ভার'), tt('Required', 'আবশ্যক'), ''].map((x) => h('th', {}, x)))),
         h('tbody', {}, comps.map((c, i) => {
           const upd = (k, parse = (v) => v) => (e) => { c[k] = parse(e.target.type === 'checkbox' ? e.target.checked : e.target.value); if (k !== 'label') paintComps(); };
@@ -83,11 +110,16 @@ function edit(subject, cats, refresh) {
   paintComps();
   openModal({ title: subject ? tt('Edit subject', 'বিষয় সম্পাদনা') : tt('Add subject', 'বিষয় যোগ'), size: 'xl',
     content: h('div', {}, h('div', { class: 'form-grid' }, nameEn.el, nameBn.el, code.el, pass.el), classes.el, groups.el, h('div', { class: 'form-grid' }, active.el, optional.el, gpa.el, total.el),
+      h('h3', { class: 'form-section' }, tt('Role in each group', 'প্রতিটি বিভাগে ভূমিকা')), rolesBox,
+      h('h3', { class: 'form-section' }, tt('Combined paper', 'যৌথ পত্র')), combOn.el, combBox,
       h('h3', { class: 'form-section' }, tt('Mark components', 'নম্বরের অংশ')), compBox, errBox),
     actions: [{ label: t('common.cancel'), onClick: () => true }, { label: t('common.save'), kind: 'primary', onClick: async () => {
       const used = new Set(); comps.forEach((c, i) => { if (!c.id || used.has(c.id)) c.id = `${(c.type || 'c').toLowerCase()}${i}`; used.add(c.id); });
       const data = { name: { en: nameEn.value, bn: nameBn.value || null }, code: code.value || null, passMarks: pass.value === '' ? null : Number(pass.value), classIds: classes.value, groupIds: groups.value,
-        active: active.value, optionalEligible: optional.value, countsTowardGpa: gpa.value, countsTowardTotal: total.value, components: comps, order: subject?.order ?? cats.subjects.length + 1 };
+        active: active.value, optionalEligible: optional.value || roleRows.some((r) => r.role.value !== 'compulsory'), countsTowardGpa: gpa.value, countsTowardTotal: total.value, components: comps, order: subject?.order ?? cats.subjects.length + 1,
+        groupRoles: Object.fromEntries(roleRows.map((r) => [r.g.id, r.role.value])),
+        sheetColumns: Object.fromEntries(roleRows.filter((r) => r.col.value.trim()).map((r) => [r.g.id, r.col.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '')])),
+        combine: combOn.value && combKey.value.trim() ? { key: combKey.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, ''), name: { en: combEn.value || nameEn.value, bn: combBn.value || null }, paper: combPaper.value } : null };
       const errors = [...(nameEn.value ? [] : [tt('English name is required.', 'ইংরেজি নাম আবশ্যক।')]), ...validateSubjectDefinition({ id: subject?.id ?? 'new', ...data, name: data.name.en })];
       errBox.replaceChildren(errors.length ? h('ul', { class: 'notice notice--bad' }, errors.map((e) => h('li', {}, e))) : '');
       if (errors.length) return false;

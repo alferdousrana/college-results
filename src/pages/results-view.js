@@ -71,7 +71,13 @@ async function init(query, root) {
     const c = { ...ctx, lang: state.lang, print: printSettings };
     if (!groupVms.length) { area.replaceChildren(emptyState({ message: tt('No students in this group.', 'এই বিভাগে শিক্ষার্থী নেই।') })); return; }
     if (state.mode === 'sheet') {
-      area.replaceChildren(featureGate('result_sheet_print', () => renderResultSheet({ vms: groupVms, subjects, exam: groupVms[0].exam, groupLabel: groupVms[0].exam.groupLabel }, c)));
+      area.replaceChildren(featureGate('result_sheet_print', () => renderResultSheet({ vms: groupVms, subjects, exam: groupVms[0].exam, groupLabel: groupVms[0].exam.groupLabel, subjectColumns: sheet?.subjectColumns ?? {} }, c)));
+      requestAnimationFrame(async () => {
+        const { applySheetFit } = await import('../print/print-runner.js');
+        const z = applySheetFit(area);
+        if (z < 1) area.prepend(h('p', { class: `notice ${z < 0.6 ? 'notice--locked' : ''} no-print` }, tt('The sheet will be printed at {p}% so every column fits on the page.', 'সব কলাম পৃষ্ঠায় আঁটাতে শিটটি {p}% আকারে ছাপা হবে।', { p: Math.round(z * 100) }),
+          z < 0.6 ? ` ${tt('To make the text larger, choose Legal paper or hide some columns in Settings → Print design.', 'লেখা বড় করতে সেটিংস → মুদ্রণ নকশায় Legal কাগজ বাছুন বা কিছু কলাম লুকান।')}` : ''));
+      });
     } else {
       const list = state.student === 'all' ? groupVms : groupVms.filter((v) => v._id === state.student);
       area.replaceChildren(featureGate('progress_report_print', () => h('div', {}, list.sort((a, b) => Number(a.student.roll) - Number(b.student.roll)).map((vm) => renderProgressReport(vm, c)))));

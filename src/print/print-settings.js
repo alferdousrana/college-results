@@ -13,9 +13,16 @@ export const DEFAULT_PRINT_SETTINGS = Object.freeze({
   logoPosition: 'left',                 // 'left' | 'center' | 'right' | 'none'
   border: { style: 'double', widthPt: 3 },
   table: { cellPaddingPt: 2, lineWidthPt: 0.75 },
-  sheet: { nameColumnMm: 38, showComponents: 'papers', showGradePoint: true, showMerit: true, rowsHint: 22, pageNumbers: true },
+  // Full result sheet. The whole width always fits one page (the table is scaled down if needed).
+  sheet: {
+    paper: 'A4',                          // 'A4' | 'Legal'
+    nameColumnMm: 38, pageNumbers: true,
+    combined: { papers: true, total: true, grade: false, gradePoint: true },   // Bangla, English (1st/2nd paper subjects)
+    single: { marks: false, grade: true, gradePoint: true },                   // every other subject
+    totals: { totalMarks: true, gpa: true, grade: false, merit: true },
+  },
   marksheetFields: {
-    fatherName: true, motherName: true, studentCode: false, section: true, shift: true, group: true,
+    fatherName: true, motherName: true, studentCode: false, section: false, shift: false, group: true,
     highestMarks: true, gradeScale: true, position: true, examHeld: true, seal: true, printedOn: true,
   },
   signatures: [
@@ -39,6 +46,10 @@ export function withPrintDefaults(s = {}) {
   const d = structuredClone(DEFAULT_PRINT_SETTINGS);
   const out = { ...d, ...s };
   for (const k of ['orientation', 'marginsMm', 'fonts', 'fontSizePt', 'border', 'table', 'sheet', 'marksheetFields']) out[k] = { ...d[k], ...(s[k] ?? {}) };
+  for (const k of ['combined', 'single', 'totals']) out.sheet[k] = { ...d.sheet[k], ...(s.sheet?.[k] ?? {}) };
+  // Older settings used showGradePoint / showMerit.
+  if (s.sheet?.showGradePoint === false) { out.sheet.single.gradePoint = false; out.sheet.combined.gradePoint = false; }
+  if (s.sheet?.showMerit === false) out.sheet.totals.merit = false;
   out.signatures = s.signatures ?? d.signatures;
   out.sheetSignatures = s.sheetSignatures ?? d.sheetSignatures;
   return out;
@@ -54,3 +65,6 @@ export function printVars(s, lang) {
 export function fontFamiliesFor(s) {
   return [resolveFont(s.fonts.en, 'en').family, resolveFont(s.fonts.bn, 'bn').family];
 }
+
+/** Paper sizes in millimetres (portrait width × height). */
+export const PAPER_MM = { A4: [210, 297], Legal: [215.9, 355.6] };

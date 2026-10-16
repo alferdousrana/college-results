@@ -52,3 +52,8 @@ See `FEATURE_FLAGS.md`. The workflow passes inputs via environment variables (no
 * Teachers cannot open another teacher's subject: the page refuses it, and the rules reject reads and writes of that subject's marks.
 * Demo mode never runs when Firebase is configured and enforces no rules; it is labelled on every screen.
 * See `KNOWN_LIMITATIONS.md` for what client-side enforcement cannot guarantee.
+
+## Deletion (round 4)
+* Draft result sheets: deletable. Any other result sheet: only with a reason and typed DELETE; the app first sets `examSessions/{id}.deleting`, and only then do rules allow deleting its marks, results and publication history. The deletion and reason are written to the audit log.
+* Students, subjects, sessions/classes/groups/exam names, teacher profiles: deletable only when nothing refers to them (checked by the app before deleting; rules allow admins to delete these collections). Teacher profiles: admins only, never their own, never an admin; the Firebase Auth account must be removed in the console.
+* Audit log entries can never be deleted.

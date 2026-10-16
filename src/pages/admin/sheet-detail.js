@@ -71,6 +71,25 @@ async function load(sid, root, initialTab) {
   } }));
   if ([ExamState.PUBLISHED, ExamState.ARCHIVED, ExamState.UNDER_REVIEW, ExamState.SUBMITTED].includes(st)) actions.push(linkButton(tt('Print', 'প্রিন্ট'), `#/results?sid=${encodeURIComponent(sid)}`, { icon: 'print' }));
 
+  // Deleting: drafts with a simple confirmation; any other sheet (test or mistaken data) with DELETE + a reason.
+  const deleteSheet = async () => {
+    const isDraft = st === ExamState.DRAFT;
+    let reason = null;
+    if (isDraft) {
+      if (!(await confirmDialog({ title: tt('Delete this draft?', 'এই খসড়া মুছবেন?'), body: tt('The draft and its student list are removed. Students and subjects themselves are not deleted.', 'খসড়া ও এর শিক্ষার্থী তালিকা মুছে যাবে। শিক্ষার্থী ও বিষয় নিজেরা মুছবে না।'), danger: true, confirmText: tt('Delete draft', 'খসড়া মুছুন') }))) return;
+    } else {
+      reason = await promptText({ title: tt('Delete the whole result sheet?', 'পুরো ফলাফল শিট মুছবেন?'),
+        body: tt('Use this only for test or mistaken sheets. All marks, results, publications and the public lookup of this examination are removed permanently. Students, teachers and subjects are kept. The deletion and your reason stay in the audit log.',
+          'শুধু পরীক্ষামূলক বা ভুল শিটের জন্য ব্যবহার করুন। এই পরীক্ষার সব নম্বর, ফলাফল, প্রকাশনা ও পাবলিক অনুসন্ধান স্থায়ীভাবে মুছে যাবে। শিক্ষার্থী, শিক্ষক ও বিষয় থাকবে। মোছা ও আপনার কারণ অডিট লগে থাকবে।'),
+        label: tt('Reason', 'কারণ'), confirmText: tt('Continue', 'এগিয়ে যান') });
+      if (!reason) return;
+      if (!(await confirmDialog({ title: tt('Delete "{t}" permanently?', '"{t}" স্থায়ীভাবে মুছবেন?', { t: L(s.title) }), body: tt('This cannot be undone.', 'এটি আর ফেরানো যাবে না।'), danger: true, confirmText: tt('Delete permanently', 'স্থায়ীভাবে মুছুন'), requireText: 'DELETE' }))) return;
+    }
+    const { deleteResultSheet } = await import('../../data/repositories/deletion-repository.js');
+    if (await run(() => deleteResultSheet(actor(), sid, reason), { success: tt('Result sheet deleted', 'ফলাফল শিট মুছে ফেলা হয়েছে') }) !== undefined) navigate('/admin/sheets');
+  };
+  actions.push(button(st === ExamState.DRAFT ? tt('Delete draft', 'খসড়া মুছুন') : tt('Delete sheet', 'শিট মুছুন'), { kind: 'danger-ghost', onClick: deleteSheet }));
+
   const tabItems = [
     { id: 'overview', label: tt('Subjects & teachers', 'বিষয় ও শিক্ষক'), render: () => overview() },
     { id: 'students', label: tt('Students', 'শিক্ষার্থী'), badge: bundle.enrollments.length, render: () => students() },
@@ -82,6 +101,9 @@ async function load(sid, root, initialTab) {
 
   root.replaceChildren(
     pageHeader({ title: L(s.title), subtitle: `${nameOf(cats.classes, s.classId)} · ${s.yearId} · ${(s.groupIds ?? []).map((g) => nameOf(cats.groups, g)).join(', ')}`, back: { href: '#/admin/sheets', label: t('nav.resultSheets') }, actions }),
+    s.deleting ? h('div', { class: 'notice notice--bad' }, h('p', { class: 'notice__title' }, tt('Deletion was interrupted', 'মোছা মাঝপথে থেমে গেছে')),
+      h('p', {}, tt('Some contents may already be removed. Delete again to finish.', 'কিছু অংশ হয়তো মুছে গেছে। শেষ করতে আবার মুছুন।')),
+      button(tt('Finish deleting', 'মোছা শেষ করুন'), { kind: 'danger', size: 'sm', onClick: async () => { const { deleteResultSheet } = await import('../../data/repositories/deletion-repository.js'); if (await run(() => deleteResultSheet(actor(), sid, s.deleting.reason)) !== undefined) navigate('/admin/sheets'); } })) : null,
     h('div', { class: 'sheet-status' }, examStateBadge(st), s.correction ? h('span', { class: 'badge badge--warn' }, tt('Correction in progress: {r}', 'সংশোধন চলছে: {r}', { r: s.correction.reason })) : null,
       s.publishedVersion ? h('span', { class: 'muted' }, tt('Published version {v}', 'প্রকাশিত সংস্করণ {v}', { v: s.publishedVersion })) : null,
       s.publicWithdrawn ? h('span', { class: 'badge badge--neutral' }, tt('Not in public lookup', 'পাবলিক অনুসন্ধানে নেই')) : null),

@@ -8,6 +8,7 @@ export * from './merit.js';
 export * from './class-stats.js';
 export * from './default-policy.js';
 export * from './snapshot.js';
+export * from './combine.js';
 
 import { computeStudentResult } from './overall-result.js';
 import { rankStudents } from './merit.js';

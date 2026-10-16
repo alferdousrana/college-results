@@ -97,6 +97,25 @@ d('firestore.rules', () => {
     await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'examSessions/y__c__e/sessionSubjects/phy'), { submission: { state: 'submitted' } }));
     await assertFails(setDoc(doc(as('t1'), 'examSessions/y__c__e/sessionSubjects/phy/marks/st1'), mark('t1', 1)));
   });
+  it('marks and publications can be deleted only while a whole sheet is being deleted', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'examSessions/y__c__e/sessionSubjects/phy/marks/st1'), { version: 1 });
+      await setDoc(doc(db, 'examSessions/y__c__e/publications/v1'), { version: 1 });
+    });
+    await assertFails(deleteDoc(doc(as('admin'), 'examSessions/y__c__e/sessionSubjects/phy/marks/st1')));
+    await assertFails(deleteDoc(doc(as('admin'), 'examSessions/y__c__e/publications/v1')));
+    await assertSucceeds(updateDoc(doc(as('admin'), 'examSessions/y__c__e'), { deleting: { reason: 'test', by: 'admin' } }));
+    await assertFails(deleteDoc(doc(as('t1'), 'examSessions/y__c__e/sessionSubjects/phy/marks/st1')));
+    await assertSucceeds(deleteDoc(doc(as('admin'), 'examSessions/y__c__e/sessionSubjects/phy/marks/st1')));
+    await assertSucceeds(deleteDoc(doc(as('admin'), 'examSessions/y__c__e/publications/v1')));
+    await assertSucceeds(deleteDoc(doc(as('admin'), 'examSessions/y__c__e')));
+  });
+  it('only the admin deletes teacher profiles, never their own or another admin', async () => {
+    await assertFails(deleteDoc(doc(as('t1'), 'users/t2')));
+    await assertFails(deleteDoc(doc(as('admin'), 'users/admin')));
+    await assertSucceeds(deleteDoc(doc(as('admin'), 'users/t2')));
+  });
   describe('developer feature control', () => {
     const flags = (by, version) => ({ version, updatedAt: serverTimestamp(), updatedBy: by, upgradeUrl: null, features: { dark_theme: { enabled: false } } });
     const session = (proof, minutes = 20) => ({ proof, createdAt: serverTimestamp(), expiresAt: Timestamp.fromMillis(Date.now() + minutes * 60000) });

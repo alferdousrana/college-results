@@ -2,6 +2,7 @@ import { OverallState, SubjectState } from './constants.js';
 import { computeSubjectResult } from './subject-result.js';
 import { roundTo, preciseSum } from './rounding.js';
 import { gradeForGpa, failBand } from './grading-scale.js';
+import { combineSubjectResults } from './combine.js';
 
 /**
  * Computes one student's examination result.
@@ -13,10 +14,12 @@ import { gradeForGpa, failBand } from './grading-scale.js';
  * @param {string|null} args.optionalSubjectId  the student's 4th/optional subject, if any
  */
 export function computeStudentResult({ subjects, marks, policy, scale, optionalSubjectId = null }) {
-  const subjectResults = subjects.map((s) => ({
+  const paperResults = subjects.map((s) => ({
     ...computeSubjectResult(s, marks?.[s.id], policy, scale),
     isOptional: s.id === optionalSubjectId,
   }));
+  // Papers sharing subject.combine.key (Bangla 1st + 2nd …) become one graded subject.
+  const subjectResults = combineSubjectResults(paperResults, subjects, policy, scale);
 
   const blocking = subjectResults.filter((r) => r.state === SubjectState.INCOMPLETE || r.state === SubjectState.INVALID);
   if (blocking.length) {

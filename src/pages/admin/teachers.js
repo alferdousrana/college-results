@@ -46,9 +46,14 @@ export function render({ query }) {
       if (await run(() => setUserStatus(actor(), u.id, to), { success: tt('Saved', 'সংরক্ষিত') }) !== undefined) after();
     };
     const approve = button(tt('Approve', 'অনুমোদন'), { kind: 'primary', size: 'sm', onClick: set('active', { title: tt('Approve {n}?', '{n}-কে অনুমোদন দেবেন?', { n: u.displayName }), body: tt('They can sign in and enter marks only for subjects you assign.', 'তিনি সাইন ইন করে শুধু আপনার দেওয়া বিষয়ে নম্বর দিতে পারবেন।'), confirmText: tt('Approve', 'অনুমোদন') }) });
+    const del = button(tt('Delete', 'মুছুন'), { size: 'sm', kind: 'danger-ghost', onClick: async () => {
+      if (!(await confirmDialog({ title: tt('Delete {n}?', '{n}-কে মুছবেন?', { n: u.displayName }), body: tt('Only possible if this teacher never entered marks and is not assigned in a result sheet. Afterwards also delete the sign-in account in Firebase Console → Authentication.', 'এই শিক্ষক কখনো নম্বর না দিলে এবং কোনো ফলাফল শিটে দায়িত্বে না থাকলেই মোছা যাবে। এরপর Firebase Console → Authentication থেকে লগইন অ্যাকাউন্টও মুছুন।'), danger: true, confirmText: tt('Delete', 'মুছুন') }))) return;
+      const { deleteTeacher } = await import('../../data/repositories/deletion-repository.js');
+      if (await run(() => deleteTeacher(actor(), u.id), { success: tt('Teacher profile deleted. Remove the sign-in account in Firebase Console → Authentication.', 'শিক্ষকের প্রোফাইল মুছে গেছে। Firebase Console → Authentication থেকে লগইন অ্যাকাউন্ট মুছুন।') }) !== undefined) after();
+    } });
     if (u.status === 'pending') return [button(tt('Reject', 'প্রত্যাখ্যান'), { size: 'sm', onClick: set('rejected', { title: tt('Reject {n}?', '{n}-এর আবেদন প্রত্যাখ্যান করবেন?', { n: u.displayName }), body: tt('They will not be able to use the app. You can approve them later.', 'তিনি অ্যাপ ব্যবহার করতে পারবেন না। পরে অনুমোদন দেওয়া যাবে।'), confirmText: tt('Reject', 'প্রত্যাখ্যান'), danger: true }) }), approve];
-    if (u.status === 'active') return [button(tt('Disable', 'নিষ্ক্রিয় করুন'), { size: 'sm', onClick: set('disabled', { title: tt('Disable {n}?', '{n}-কে নিষ্ক্রিয় করবেন?', { n: u.displayName }), body: tt('They lose access immediately. Marks they entered are kept.', 'তিনি সঙ্গে সঙ্গে প্রবেশাধিকার হারাবেন। তাঁর দেওয়া নম্বর থাকবে।'), confirmText: tt('Disable', 'নিষ্ক্রিয় করুন'), danger: true }) })];
-    return [approve];
+    if (u.status === 'active') return [del, button(tt('Disable', 'নিষ্ক্রিয় করুন'), { size: 'sm', onClick: set('disabled', { title: tt('Disable {n}?', '{n}-কে নিষ্ক্রিয় করবেন?', { n: u.displayName }), body: tt('They lose access immediately. Marks they entered are kept.', 'তিনি সঙ্গে সঙ্গে প্রবেশাধিকার হারাবেন। তাঁর দেওয়া নম্বর থাকবে।'), confirmText: tt('Disable', 'নিষ্ক্রিয় করুন'), danger: true }) })];
+    return [del, approve];
   }
   function create(after) {
     const f = { name: field({ label: tt('Full name', 'পূর্ণ নাম'), name: 'cn', required: true }), email: field({ label: tt('Email', 'ইমেইল'), name: 'ce', type: 'email', required: true }),

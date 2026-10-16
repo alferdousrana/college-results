@@ -2,7 +2,7 @@
 export const PRINT_LABELS = {
   en: {
     progressReport: 'Progress Report', resultSheet: 'Result Sheet', studentName: "Student's Name", fatherName: "Father's Name", motherName: "Mother's Name",
-    studentId: 'Student ID', examination: 'Examination', year: 'Year', class: 'Class', group: 'Group', section: 'Section', shift: 'Shift', roll: 'Roll',
+    studentId: 'Student ID', examination: 'Examination', year: 'Session', class: 'Class', group: 'Group', section: 'Section', shift: 'Shift', roll: 'Roll',
     examHeld: 'Exam Held', subject: 'Subject', fullMarks: 'Full Marks', highest: 'Highest Marks', obtained: 'Obtained Marks', total: 'Total',
     totalMarks: 'Total Marks', gradePoint: 'Grade Point', letterGrade: 'Letter Grade', grade: 'Grade', gpa: 'GPA', status: 'Result', position: 'Merit Position',
     of: 'of', range: 'Range', pass: 'PASSED', fail: 'FAILED', incomplete: 'INCOMPLETE', optional: 'Optional', absent: 'Absent', name: 'Name',
@@ -10,7 +10,7 @@ export const PRINT_LABELS = {
   },
   bn: {
     progressReport: 'অগ্রগতি প্রতিবেদন', resultSheet: 'ফলাফল শিট', studentName: 'শিক্ষার্থীর নাম', fatherName: 'পিতার নাম', motherName: 'মাতার নাম',
-    studentId: 'শিক্ষার্থী আইডি', examination: 'পরীক্ষা', year: 'বছর', class: 'শ্রেণি', group: 'বিভাগ', section: 'শাখা', shift: 'শিফট', roll: 'রোল',
+    studentId: 'শিক্ষার্থী আইডি', examination: 'পরীক্ষা', year: 'সেশন', class: 'শ্রেণি', group: 'বিভাগ', section: 'শাখা', shift: 'শিফট', roll: 'রোল',
     examHeld: 'পরীক্ষার সময়', subject: 'বিষয়', fullMarks: 'পূর্ণমান', highest: 'সর্বোচ্চ নম্বর', obtained: 'প্রাপ্ত নম্বর', total: 'মোট',
     totalMarks: 'মোট নম্বর', gradePoint: 'গ্রেড পয়েন্ট', letterGrade: 'লেটার গ্রেড', grade: 'গ্রেড', gpa: 'জিপিএ', status: 'ফলাফল', position: 'মেধাস্থান',
     of: 'এর মধ্যে', range: 'নম্বরের সীমা', pass: 'উত্তীর্ণ', fail: 'অনুত্তীর্ণ', incomplete: 'অসম্পূর্ণ', optional: 'ঐচ্ছিক', absent: 'অনুপস্থিত', name: 'নাম',

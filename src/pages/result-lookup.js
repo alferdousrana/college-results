@@ -29,7 +29,7 @@ function lookupForm() {
     if (!exams.length) { wrap.replaceChildren(emptyState({ message: t('lookup.noExams') })); return; }
     const classes = [...new Map(exams.map((e) => [L(e.classLabel, 'en'), e.classLabel])).values()];
     const mk = (id, label) => h('div', { class: 'field' }, h('label', { class: 'field__label', for: id }, label), h('select', { class: 'input', id, required: true }));
-    const cF = mk('lk-class', tt('Class', 'শ্রেণি')), yF = mk('lk-year', tt('Examination year', 'পরীক্ষার বছর')), eF = mk('lk-exam', tt('Examination name', 'পরীক্ষার নাম'));
+    const cF = mk('lk-class', tt('Class', 'শ্রেণি')), yF = mk('lk-year', tt('Session', 'সেশন')), eF = mk('lk-exam', tt('Examination name', 'পরীক্ষার নাম'));
     const [cS, yS, eS] = [cF, yF, eF].map((x) => x.querySelector('select'));
     const fill = (sel, opts) => sel.replaceChildren(...opts.map(([v, l]) => h('option', { value: v }, l)));
     fill(cS, classes.map((c) => [L(c, 'en'), L(c)]));

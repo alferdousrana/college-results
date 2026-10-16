@@ -46,6 +46,8 @@ service cloud.firestore {
         ['published', 'archived']
       ];
     }
+    // Set before a whole result sheet is deleted (typed confirmation + reason in the app).
+    function beingDeleted(sid) { return session(sid).get('deleting', null) != null; }
     function markEntryOpen(sid) {
       return session(sid).state in ['ready_for_mark_entry', 'mark_entry_in_progress'];
     }
@@ -67,7 +69,8 @@ service cloud.firestore {
       allow update: if (signedIn() && uid() == userId && onlyChanges(['displayName', 'phone', 'prefs', 'updatedAt']))
         || (isAdmin() && request.resource.data.role in ['teacher', 'super_admin']
             && request.resource.data.status in ['pending', 'active', 'rejected', 'disabled']);
-      allow delete: if false; // deactivate instead; keeps audit trail intact
+      // Only teacher profiles with no history (checked by the app) — never your own, never an admin.
+      allow delete: if isAdmin() && userId != uid() && resource.data.role == 'teacher';
     }
 
     // ---------- institution, settings, catalogue ----------
@@ -110,16 +113,16 @@ service cloud.firestore {
             && resource.data.state == 'ready_for_mark_entry'
             && request.resource.data.state == 'mark_entry_in_progress'
             && onlyChanges(['state', 'updatedAt']));
-      allow delete: if isAdmin() && resource.data.state == 'draft';
+      allow delete: if isAdmin() && (resource.data.state == 'draft' || resource.data.get('deleting', null) != null);
 
       match /sheets/{groupId} {
         allow read: if isAdmin() || inSession(sid);
-        allow write: if isAdmin() && session(sid).state in ['draft', 'ready_for_mark_entry'];
+        allow write: if isAdmin() && (session(sid).state in ['draft', 'ready_for_mark_entry'] || beingDeleted(sid));
       }
 
       match /sessionSubjects/{subjectId} {
         allow read: if isAdmin() || inSession(sid);
-        allow write: if isAdmin() && !(session(sid).state in ['published', 'archived']);
+        allow write: if isAdmin() && (!(session(sid).state in ['published', 'archived']) || beingDeleted(sid));
         // Assigned teacher may mark their own subject as submitted / unsubmit while entry is open.
         allow update: if assignedTo(sid, subjectId) && markEntryOpen(sid)
           && onlyChanges(['submission', 'updatedAt'])
@@ -136,22 +139,23 @@ service cloud.firestore {
           allow update: if canWriteMarks(sid, subjectId)
             && validMarkDoc(studentId, subjectId)
             && request.resource.data.version == resource.data.version + 1;
-          allow delete: if false;
+          allow delete: if isAdmin() && beingDeleted(sid);
         }
       }
 
       match /enrollments/{studentId} {
         allow read: if isAdmin() || inSession(sid);
-        allow write: if isAdmin() && !(session(sid).state in ['published', 'archived']);
+        allow write: if isAdmin() && (!(session(sid).state in ['published', 'archived']) || beingDeleted(sid));
       }
       match /results/{studentId} {
         allow read: if isAdmin() || (inSession(sid) && session(sid).state in ['published', 'archived']);
-        allow write: if isAdmin() && session(sid).state in ['submitted', 'under_review'];
+        allow write: if isAdmin() && (session(sid).state in ['submitted', 'under_review'] || beingDeleted(sid));
       }
       match /publications/{pubId} {
         allow read: if isAdmin();
         allow create: if isAdmin() && serverTime('publishedAt');
-        allow update, delete: if false; // publication history is append-only
+        allow update: if false; // publication history is append-only…
+        allow delete: if isAdmin() && beingDeleted(sid); // …except when the whole sheet is deleted
       }
     }
 
