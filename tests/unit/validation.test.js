@@ -44,3 +44,21 @@ describe('subject definition', () => {
     expect(validateSubjectDefinition({ id: 'a', name: 'A', components: [{ id: 'cq', maxMarks: 50, passMarks: 60 }] }).length).toBe(1);
   });
 });
+
+import { resolveImportNames } from '../../src/domain/validation/student-import.js';
+describe('import by name', () => {
+  const groups = [{ id: 'sci-x', name: { en: 'Science', bn: 'বিজ্ঞান' } }];
+  const subjects = [{ id: 'hm-1', name: { en: 'Higher Mathematics', bn: 'উচ্চতর গণিত' } }, { id: 'bio', name: { en: 'Biology' } }];
+  it('maps names (any case, Bangla) and ids to the database ids', () => {
+    const r = resolveImportNames([{ roll: 1, name: 'A', groupId: 'science', subjectIds: ['higher mathematics', 'bio'], optionalSubjectId: 'Biology' }, { roll: 2, name: 'B', groupId: 'বিজ্ঞান' }], { groups, subjects });
+    expect(r.unresolved).toEqual([]);
+    expect(r.list[0]).toMatchObject({ groupId: 'sci-x', subjectIds: ['hm-1', 'bio'], optionalSubjectId: 'bio' });
+    expect(r.list[1].groupId).toBe('sci-x');
+  });
+  it('reports names it cannot find, per row', () => {
+    const r = resolveImportNames([{ roll: 1, name: 'A', groupId: 'Arts', subjectIds: ['Astronomy'] }], { groups, subjects });
+    expect(r.unresolved.map((e) => e.field)).toEqual(['groupId', 'subjectIds']);
+    const v = validateStudentImport(r.list, { extraErrors: r.unresolved });
+    expect(v.valid).toEqual([]);
+  });
+});

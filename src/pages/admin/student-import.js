@@ -9,7 +9,7 @@ import { selectField } from '../../ui/components/form.js';
 import { loadingState, errorState } from '../../ui/components/states.js';
 import { toast } from '../../ui/components/toast.js';
 import { actor, friendlyError } from '../_shared.js';
-import { parseImportText, validateStudentImport } from '../../domain/validation/student-import.js';
+import { parseImportText, validateStudentImport, resolveImportNames } from '../../domain/validation/student-import.js';
 import { download } from '../../ui/format.js';
 import { featureGate } from '../../ui/components/feature-gate.js';
 
@@ -49,7 +49,9 @@ async function init(body, query) {
     if (!parsed.ok) { out.replaceChildren(errorState({ message: parsed.error })); return; }
     const klass = cats.classes.find((c) => c.id === classF.value);
     const groupIds = new Set(klass?.groupIds?.length ? klass.groupIds : cats.groups.map((g) => g.id));
-    const { valid, errors } = validateStudentImport(parsed.list, { groupIds, customFieldDefs: fieldDefs, requireGroup: groupIds.size > 0, allowExisting: true });
+    // Groups and subjects may be written by id or by name ("Science", "বিজ্ঞান", "Higher Mathematics").
+    const resolved = resolveImportNames(parsed.list, { groups: cats.groups, subjects: cats.subjects });
+    const { valid, errors } = validateStudentImport(resolved.list, { groupIds, customFieldDefs: fieldDefs, requireGroup: groupIds.size > 0, allowExisting: true, extraErrors: resolved.unresolved });
     if (errors.length) {
       out.replaceChildren(h('div', { class: 'notice notice--bad' }, h('p', { class: 'notice__title' }, tt('{n} problem(s) found. Nothing has been imported.', '{n}টি সমস্যা পাওয়া গেছে। কিছুই ইমপোর্ট হয়নি।', { n: errors.length })),
         h('p', {}, tt('Fix the file and choose it again.', 'ফাইল ঠিক করে আবার বাছুন।'))),
@@ -92,7 +94,7 @@ async function init(body, query) {
   body.replaceChildren(
     h('div', { class: 'card' },
       h('ol', { class: 'steps-text' },
-        h('li', {}, tt('Download the template and fill one entry per student. Required: roll, name and (for classes with groups) groupId.', 'টেমপ্লেট নামিয়ে প্রতি শিক্ষার্থীর জন্য একটি করে তথ্য দিন। আবশ্যক: রোল, নাম এবং (বিভাগ থাকলে) groupId।'),
+        h('li', {}, tt('Download the template and fill one entry per student. Required: roll, name and (for classes with groups) groupId. Groups and subjects can be written by name, e.g. "Science" or "Higher Mathematics".', 'টেমপ্লেট নামিয়ে প্রতি শিক্ষার্থীর জন্য একটি করে তথ্য দিন। আবশ্যক: রোল, নাম এবং (বিভাগ থাকলে) groupId। বিভাগ ও বিষয় নাম দিয়েও লেখা যায়, যেমন "Science" বা "Higher Mathematics"।'),
           ' ', button(tt('Download template', 'টেমপ্লেট নামান'), { size: 'sm', icon: 'download', onClick: () => download('students-template.json', JSON.stringify({ ...IMPORT_TEMPLATE, _groups: cats.groups.map((g) => g.id), _optionalSubjects: cats.subjects.filter((s) => s.optionalEligible).map((s) => s.id), _customFields: fieldDefs.map((d) => d.key) }, null, 2)) })),
         h('li', {}, tt('Choose where to import and what to do with students who already exist.', 'কোথায় ইমপোর্ট হবে এবং বিদ্যমান শিক্ষার্থীদের কী হবে তা বাছুন।')),
         h('li', {}, tt('Choose the file. Nothing is saved until you confirm the preview.', 'ফাইল বাছুন। প্রাকদর্শন নিশ্চিত না করা পর্যন্ত কিছুই সংরক্ষিত হবে না।'))),

@@ -26,6 +26,36 @@ export function parseImportText(text) {
  * @param {object} ctx { existingRolls: Set<string>, allowExisting, groupIds: Set<string>, customFieldDefs: [{key,type,required,options}], requireGroup }
  * With allowExisting the existing-roll check is skipped (the import plan decides update/skip).
  */
+/**
+ * Lets an import file name groups and subjects by id OR by name (English or Bangla, any case),
+ * e.g. "groupId": "Science" or "subjectIds": ["Higher Mathematics"]. Returns a rewritten copy of the list
+ * plus the names that could not be resolved (reported as row errors by validateStudentImport).
+ * items: [{ id, name: { en, bn } | label }]
+ */
+export function resolveImportNames(list, { groups = [], subjects = [] } = {}) {
+  const key = (v) => String(v ?? '').normalize('NFC').toLowerCase().replace(/[^a-z0-9\u0980-\u09ff]+/g, '');
+  const index = (items) => {
+    const m = new Map();
+    for (const x of items) for (const k of [x.id, x.name?.en, x.name?.bn, x.label, x.code]) if (k) m.set(key(k), x.id);
+    return m;
+  };
+  const g = index(groups), s = index(subjects);
+  const unresolved = [];
+  const out = list.map((item, i) => {
+    if (!item || typeof item !== 'object') return item;
+    const copy = { ...item };
+    if (copy.groupId != null && copy.groupId !== '') {
+      const id = g.get(key(copy.groupId));
+      if (id) copy.groupId = id; else unresolved.push({ row: i + 1, field: 'groupId', message: `Unknown group "${item.groupId}".` });
+    }
+    const mapSubject = (v, field) => { const id = s.get(key(v)); if (!id) unresolved.push({ row: i + 1, field, message: `Unknown subject "${v}".` }); return id ?? v; };
+    if (Array.isArray(copy.subjectIds)) copy.subjectIds = copy.subjectIds.map((v) => mapSubject(v, 'subjectIds'));
+    if (copy.optionalSubjectId) copy.optionalSubjectId = mapSubject(copy.optionalSubjectId, 'optionalSubjectId');
+    return copy;
+  });
+  return { list: out, unresolved };
+}
+
 export function validateStudentImport(list, ctx = {}) {
   const errors = [];
   const valid = [];
@@ -58,7 +88,7 @@ export function validateStudentImport(list, ctx = {}) {
     for (const k of ['fatherName', 'motherName', 'nameBn', 'section', 'shift', 'studentCode', 'admissionNumber']) if (item[k] != null && typeof item[k] !== 'string') push(k, 'Must be text.');
     for (const k of ['dob', 'admissionDate']) if (item[k] && Number.isNaN(Date.parse(item[k]))) push(k, 'Must be a date (YYYY-MM-DD).');
     if (item.subjectIds != null && !(Array.isArray(item.subjectIds) && item.subjectIds.every((x) => typeof x === 'string'))) push('subjectIds', 'Must be a list of subject ids.');
-    if (item.groupId && groups && !groups.has(item.groupId)) push('groupId', `Unknown group "${item.groupId}".`);
+    if (item.groupId && groups && !groups.has(item.groupId)) push('groupId', `Unknown group "${item.groupId}" for this class.`);
 
     for (const key of Object.keys(item)) if (!CORE_FIELDS.has(key)) push(key, `Unknown field "${key}". Put extra data inside "customFields".`);
 
@@ -88,5 +118,6 @@ export function validateStudentImport(list, ctx = {}) {
     });
   });
 
-  return { valid: errors.length ? [] : valid, errors };
+  const all = [...(ctx.extraErrors ?? []), ...errors].sort((a, b) => (a.row ?? 0) - (b.row ?? 0));
+  return { valid: all.length ? [] : valid, errors: all };
 }
