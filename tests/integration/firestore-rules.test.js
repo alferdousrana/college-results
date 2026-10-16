@@ -102,8 +102,9 @@ d('firestore.rules', () => {
     const session = (proof, minutes = 20) => ({ proof, createdAt: serverTimestamp(), expiresAt: Timestamp.fromMillis(Date.now() + minutes * 60000) });
     beforeEach(async () => {
       await env.withSecurityRulesDisabled(async (ctx) => {
-        await setDoc(doc(ctx.firestore(), 'developers/dev'), { answerHash: 'right-hash' });
-        await setDoc(doc(ctx.firestore(), 'developerProfiles/dev'), { question: 'Q?' });
+        const db = ctx.firestore(); // call firestore() once per context (a second call re-applies settings and throws)
+        await setDoc(doc(db, 'developers/dev'), { answerHash: 'right-hash' });
+        await setDoc(doc(db, 'developerProfiles/dev'), { question: 'Q?' });
       });
     });
     it('the stored hash is unreadable; the question is readable only by the developer', async () => {

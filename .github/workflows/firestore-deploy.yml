@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['firestore.rules', 'firestore.indexes.json']
+    paths: ['firestore.rules', 'firestore.indexes.json', 'tests/integration/**']
 permissions:
   contents: read
 concurrency:
