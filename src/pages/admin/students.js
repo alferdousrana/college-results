@@ -61,6 +61,8 @@ async function init(root, query) {
     openModal({ title: r.nameEn, size: 'l', content: h('div', {},
       keyValue([[tt('Bangla name', 'বাংলা নাম'), r.nameBn], [tt('Student ID', 'শিক্ষার্থী আইডি'), r.studentCode], [tt("Father's name", 'পিতার নাম'), r.fatherName], [tt("Mother's name", 'মাতার নাম'), r.motherName],
         [tt('Date of birth', 'জন্ম তারিখ'), r.dob], [tt('Class', 'শ্রেণি'), `${nameOf(cats.classes, r.current?.classId)} · ${r.current?.yearId} · ${tt('roll', 'রোল')} ${r.current?.roll}`],
+        [tt('Subjects chosen', 'বাছাই করা বিষয়'), (r.current?.subjectIds ?? []).filter((id) => id !== r.current?.optionalSubjectId).map((id) => nameOf(cats.subjects, id)).join(', ') || '—'],
+        [tt('4th subject', '৪র্থ বিষয়'), r.current?.optionalSubjectId ? nameOf(cats.subjects, r.current.optionalSubjectId) : '—'],
         ...custom]),
       h('h3', {}, tt('Published results', 'প্রকাশিত ফলাফল')),
       hist.length ? h('table', { class: 'mini-table' }, h('tbody', {}, hist.map((x) => h('tr', {}, h('td', {}, L(x.title)), h('td', {}, `${tt('Roll', 'রোল')} ${x.roll}`), h('td', {}, `GPA ${fmtNum(x.gpa, 2)} (${x.grade})`), h('td', {}, fmtDate(x.publishedAt)),
