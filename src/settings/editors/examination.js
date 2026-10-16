@@ -18,7 +18,15 @@ export function render(el) {
     h('p', {}, tt("Adds the college's sessions, classes, the three groups with their subject rules, examination names and all 26 subjects (Bangla and English 1st/2nd papers combined), plus the college name and address if they are still empty.",
       'কলেজের সেশন, শ্রেণি, তিনটি বিভাগ ও তাদের বিষয়ের নিয়ম, পরীক্ষার নাম এবং ২৬টি বিষয় (বাংলা ও ইংরেজি ১ম/২য় পত্র যৌথভাবে) যোগ করে; কলেজের নাম ও ঠিকানা খালি থাকলে সেগুলোও।')),
     h('p', { class: 'muted small' }, tt('Mark distributions and pass marks are starting values. Check every subject afterwards on the Subjects page.', 'নম্বর বণ্টন ও পাস নম্বর প্রাথমিক মান। পরে বিষয় পৃষ্ঠায় প্রতিটি বিষয় যাচাই করুন।')),
-    button(tt('Load starter data…', 'প্রাথমিক তথ্য যোগ করুন…'), { kind: 'primary', onClick: preview }));
+    h('div', { class: 'row-actions' },
+      button(tt('Load starter data…', 'প্রাথমিক তথ্য যোগ করুন…'), { kind: 'primary', onClick: preview }),
+      button(tt('Check and repair subject links', 'বিষয়ের সংযোগ যাচাই ও মেরামত'), { onClick: async () => {
+        try {
+          const { repairReferences } = await import('../../data/repositories/starter-repository.js');
+          const n = await repairReferences(actor());
+          toast(n ? tt('{n} item(s) pointed at a missing class or group and were fixed.', '{n}টি আইটেম অনুপস্থিত শ্রেণি বা বিভাগ দেখাচ্ছিল, ঠিক করা হয়েছে।', { n }) : tt('Everything is linked correctly.', 'সব সংযোগ ঠিক আছে।'), 'success');
+        } catch (e) { toast(friendlyError(e), 'error'); }
+      } })));
 }
 
 async function preview() {
@@ -37,7 +45,7 @@ async function preview() {
       actions: [{ label: t('common.cancel'), onClick: () => true }, { label: tt('Add starter data', 'যোগ করুন'), kind: 'primary', onClick: async () => {
         try {
           const r = await applyStarterData(actor(), data, plan, { updateMatching: upd.checked });
-          toast(tt('Added {a}, updated {b}, skipped {c}.', 'যোগ {a}, হালনাগাদ {b}, বাদ {c}।', { a: r.created, b: r.updated, c: r.skipped }), 'success');
+          toast(tt('Added {a}, updated {b}, skipped {c}, repaired {d}.', 'যোগ {a}, হালনাগাদ {b}, বাদ {c}, মেরামত {d}।', { a: r.created, b: r.updated, c: r.skipped, d: r.repaired }), 'success');
           return true;
         } catch (e) { toast(friendlyError(e), 'error'); return false; }
       } }] });
