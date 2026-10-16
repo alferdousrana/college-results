@@ -88,7 +88,8 @@ export function validateStudentImport(list, ctx = {}) {
     for (const k of ['fatherName', 'motherName', 'nameBn', 'section', 'shift', 'studentCode', 'admissionNumber']) if (item[k] != null && typeof item[k] !== 'string') push(k, 'Must be text.');
     for (const k of ['dob', 'admissionDate']) if (item[k] && Number.isNaN(Date.parse(item[k]))) push(k, 'Must be a date (YYYY-MM-DD).');
     if (item.subjectIds != null && !(Array.isArray(item.subjectIds) && item.subjectIds.every((x) => typeof x === 'string'))) push('subjectIds', 'Must be a list of subject ids.');
-    if (item.groupId && groups && !groups.has(item.groupId)) push('groupId', `Unknown group "${item.groupId}" for this class.`);
+    const unresolvedGroup = (ctx.extraErrors ?? []).some((e) => e.row === row && e.field === 'groupId');
+    if (item.groupId && groups && !groups.has(item.groupId) && !unresolvedGroup) push('groupId', `Group "${item.groupId}" is not part of this class.`);
 
     for (const key of Object.keys(item)) if (!CORE_FIELDS.has(key)) push(key, `Unknown field "${key}". Put extra data inside "customFields".`);
 

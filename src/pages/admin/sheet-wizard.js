@@ -201,6 +201,11 @@ async function init(sid, body) {
       if (force || st.rosterLoadedFor !== key) {
         const { listClassRoster } = await import('../../data/repositories/students-repository.js');
         const list = await listClassRoster(st.details.yearId, st.details.classId);
+        // Existing rows pick up subject choices saved on the student record (when the row has none yet).
+        for (const s of list) {
+          const row = st.roster.get(s.id);
+          if (row && !row.subjectIds?.length && s.current?.subjectIds?.length) { row.subjectIds = [...s.current.subjectIds]; row.optionalSubjectId = s.current.optionalSubjectId ?? null; }
+        }
         for (const s of list) if (!st.roster.has(s.id)) st.roster.set(s.id, { studentId: s.id, include: true, roll: s.current.roll, name: { en: s.nameEn, bn: s.nameBn }, groupId: s.current.groupId, optionalSubjectId: s.current.optionalSubjectId ?? null, subjectIds: s.current.subjectIds ?? null, section: s.current.section, shift: s.current.shift });
         st.rosterLoadedFor = key;
       }

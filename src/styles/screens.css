@@ -234,3 +234,5 @@ progress { accent-color: var(--c-brand); width: 100px; height: 8px; vertical-ali
 .group-rules { margin-bottom: var(--space-3); align-items: flex-end; }
 .subject-roles td { vertical-align: middle; }
 .text-good { color: var(--c-good); font-weight: 600; }
+.chooser { display: grid; gap: var(--space-2); }
+.chooser .fieldset { margin: 0; }
