@@ -1,7 +1,7 @@
 # Known limitations and trade-offs
 
 ## Not yet verified
-* **Firestore security rules have not been executed.** `tests/integration/firestore-rules.test.js` (14 cases) is written but the emulator could not be downloaded in the build environment. Run `npm run test:rules` before deploying.
+* **Security rules** run on the emulator in GitHub Actions before each deploy (first run passed). The four developer-control cases added in round 2 run on the next deploy.
 * **No real Firebase project, Vercel deployment or GitHub workflow run** has been tested. Everything that ran used the demo backend, which does not enforce rules.
 * The browser checks ran in headless Chromium only (desktop and a 390 px phone viewport). Safari/iOS, Firefox and real devices are untested.
 

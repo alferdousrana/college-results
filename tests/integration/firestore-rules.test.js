@@ -6,7 +6,7 @@
 import { describe, it, beforeAll, afterAll, beforeEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, collection, getDocs, serverTimestamp, Timestamp, addDoc } from 'firebase/firestore';
 
 const enabled = Boolean(process.env.FIRESTORE_EMULATOR_HOST);
 const d = enabled ? describe : describe.skip;
@@ -96,6 +96,39 @@ d('firestore.rules', () => {
   it('teachers cannot write marks after their subject is submitted or the sheet is published', async () => {
     await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'examSessions/y__c__e/sessionSubjects/phy'), { submission: { state: 'submitted' } }));
     await assertFails(setDoc(doc(as('t1'), 'examSessions/y__c__e/sessionSubjects/phy/marks/st1'), mark('t1', 1)));
+  });
+  describe('developer feature control', () => {
+    const flags = (by, version) => ({ version, updatedAt: serverTimestamp(), updatedBy: by, upgradeUrl: null, features: { dark_theme: { enabled: false } } });
+    const session = (proof, minutes = 20) => ({ proof, createdAt: serverTimestamp(), expiresAt: Timestamp.fromMillis(Date.now() + minutes * 60000) });
+    beforeEach(async () => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        await setDoc(doc(ctx.firestore(), 'developers/dev'), { answerHash: 'right-hash' });
+        await setDoc(doc(ctx.firestore(), 'developerProfiles/dev'), { question: 'Q?' });
+      });
+    });
+    it('the stored hash is unreadable; the question is readable only by the developer', async () => {
+      await assertFails(getDoc(doc(as('dev'), 'developers/dev')));
+      await assertSucceeds(getDoc(doc(as('dev'), 'developerProfiles/dev')));
+      await assertFails(getDoc(doc(as('t1'), 'developerProfiles/dev')));
+    });
+    it('a wrong answer cannot unlock; a non-developer cannot unlock', async () => {
+      await assertFails(setDoc(doc(as('dev'), 'developerSessions/dev'), session('wrong')));
+      await assertFails(setDoc(doc(as('admin'), 'developerSessions/admin'), session('right-hash')));
+      await assertFails(setDoc(doc(as('dev'), 'developerSessions/dev'), session('right-hash', 120))); // too long
+    });
+    it('a verified developer can change flags and write history; the college admin cannot', async () => {
+      await assertFails(setDoc(doc(as('dev'), 'featureFlags/global'), flags('dev', 1))); // not unlocked yet
+      await assertSucceeds(setDoc(doc(as('dev'), 'developerSessions/dev'), session('right-hash')));
+      await assertSucceeds(setDoc(doc(as('dev'), 'featureFlags/global'), flags('dev', 1)));
+      await assertFails(setDoc(doc(as('dev'), 'featureFlags/global'), flags('dev', 1))); // version must increase
+      await assertSucceeds(setDoc(doc(as('dev'), 'featureFlags/global'), flags('dev', 2)));
+      await assertSucceeds(addDoc(collection(as('dev'), 'featureFlagHistory'), { by: 'dev', at: serverTimestamp(), version: 2 }));
+      await assertFails(setDoc(doc(as('admin'), 'featureFlags/global'), flags('admin', 3)));
+    });
+    it('an expired session cannot change flags', async () => {
+      await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), 'developerSessions/dev'), { proof: 'right-hash', createdAt: Timestamp.now(), expiresAt: Timestamp.fromMillis(Date.now() - 1000) }));
+      await assertFails(setDoc(doc(as('dev'), 'featureFlags/global'), flags('dev', 1)));
+    });
   });
   it('public visitors can get but not list published results, and cannot read sessions', async () => {
     const anon = env.unauthenticatedContext().firestore();

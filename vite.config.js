@@ -38,6 +38,10 @@ export default defineConfig({
     // The Firebase chunk (~600 kB, ~140 kB gzip) is loaded lazily, never on first paint.
     chunkSizeWarningLimit: 700,
     rollupOptions: {
+      // The developer control page is only built for GitHub Pages (BUILD_DEV_CONTROL=1), never for the college's Vercel site.
+      input: process.env.BUILD_DEV_CONTROL === '1'
+        ? { main: new URL('./index.html', import.meta.url).pathname, devControl: new URL('./dev-control/index.html', import.meta.url).pathname }
+        : { main: new URL('./index.html', import.meta.url).pathname },
       output: {
         manualChunks: { firebase: ['firebase/app', 'firebase/auth', 'firebase/firestore'] },
       },

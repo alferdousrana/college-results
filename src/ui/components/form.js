@@ -1,4 +1,5 @@
 import { h } from '../../core/dom.js';
+import { tt } from '../../i18n/index.js';
 
 let uid = 0;
 /** Labelled input with hint and inline error, wired with aria-describedby. */
@@ -11,11 +12,25 @@ export function field({ label, name, type = 'text', value = '', hint = null, req
     : h('input', { id, name, type, value: value ?? '', class: 'input', required, autocomplete, inputmode, 'aria-describedby': [hintId, errId].filter(Boolean).join(' '), ...attrs });
   if (type === 'checkbox') { input.className = 'checkbox'; input.checked = Boolean(value); }
   const error = h('p', { id: errId, class: 'field__error', hidden: true });
+  // Password fields get a show/hide button (the input keeps its id, label and autocomplete).
+  let control = input;
+  if (type === 'password') {
+    const toggle = h('button', { type: 'button', class: 'pw-toggle', 'aria-controls': id, 'aria-pressed': 'false', 'aria-label': tt('Show password', 'পাসওয়ার্ড দেখান') }, tt('Show', 'দেখান'));
+    toggle.addEventListener('click', () => {
+      const show = input.type === 'password';
+      input.type = show ? 'text' : 'password';
+      toggle.textContent = show ? tt('Hide', 'লুকান') : tt('Show', 'দেখান');
+      toggle.setAttribute('aria-pressed', String(show));
+      toggle.setAttribute('aria-label', show ? tt('Hide password', 'পাসওয়ার্ড লুকান') : tt('Show password', 'পাসওয়ার্ড দেখান'));
+      input.focus();
+    });
+    control = h('div', { class: 'pw-wrap' }, input, toggle);
+  }
   const wrap = type === 'checkbox'
     ? h('div', { class: 'field field--check' }, input, h('label', { for: id }, label), hint ? h('p', { id: hintId, class: 'field__hint' }, hint) : null, error)
     : h('div', { class: 'field' },
       h('label', { class: 'field__label', for: id }, label, required ? h('span', { class: 'field__req', 'aria-hidden': 'true' }, ' *') : null),
-      input, hint ? h('p', { id: hintId, class: 'field__hint' }, hint) : null, error);
+      control, hint ? h('p', { id: hintId, class: 'field__hint' }, hint) : null, error);
   return {
     el: wrap, input,
     get value() { return type === 'checkbox' ? input.checked : input.value.trim(); },

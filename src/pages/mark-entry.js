@@ -247,7 +247,12 @@ async function init(sid, subjectId, root) {
   const submitBtn = button(tt('Submit subject', 'বিষয় জমা দিন'), { kind: 'primary', onClick: async () => {
     if (rows.some((r) => ['dirty', 'saving', 'pending', 'error', 'invalid', 'conflict'].includes(r.status))) { toast(tt('Wait until every row shows Saved, then submit.', 'সব সারিতে "সংরক্ষিত" দেখানো পর্যন্ত অপেক্ষা করে জমা দিন।'), 'error'); return; }
     if (!(await confirmDialog({ title: tt('Submit {x}?', '{x} জমা দেবেন?', { x: L(def.name) }), body: tt('You will not be able to change marks after submitting unless the administrator reopens the subject.', 'জমা দেওয়ার পর প্রশাসক আবার না খুললে নম্বর বদলানো যাবে না।'), confirmText: tt('Submit', 'জমা দিন') }))) return;
-    try { await submitSubject(me, sid, subjectId, bundle.session.title); toast(tt('Submitted. The administrator has been notified.', 'জমা হয়েছে। প্রশাসককে জানানো হয়েছে।'), 'success'); location.reload(); }
+    try {
+      await submitSubject(me, sid, subjectId, bundle.session.title);
+      // After the reload the "Back to examination" button receives focus (see below).
+      sessionStorage.setItem('crms.focusBack', `${sid}|${subjectId}`);
+      location.reload();
+    }
     catch (e) { toast(friendlyError(e), 'error'); }
   } });
   const saveBtn = button(tt('Save now', 'এখনই সংরক্ষণ'), { onClick: async () => { for (const [id, tm] of timers) { clearTimeout(tm); await commit(rows.find((r) => r.e.id === id)); } await flush(); } });
@@ -268,6 +273,11 @@ async function init(sid, subjectId, root) {
     h('div', { class: 'table-scroll marks-scroll' }, table));
   rows.forEach(paintRow);
   paintSaveStatus(); paintMissing();
+  if (sessionStorage.getItem('crms.focusBack') === `${sid}|${subjectId}`) {
+    sessionStorage.removeItem('crms.focusBack');
+    toast(tt('Submitted. The administrator has been notified.', 'জমা হয়েছে। প্রশাসককে জানানো হয়েছে।'), 'success');
+    requestAnimationFrame(() => root.querySelector('.page-head__back')?.focus());
+  }
   if (restored) flushSoon();
 
   const offNet = on('network', (online) => { paintSaveStatus(); if (online) flush(); });

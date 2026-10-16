@@ -33,7 +33,13 @@ function buildFrame() {
   return { root, header, sidebar, tabbar, main, banner };
 }
 
-function isActive(route, path) { return path === route.path || (route.path !== '/' && path?.startsWith(`${route.path}/`)); }
+/** The most specific navigation route wins (so /admin/assignments does not also light up /admin). */
+function isActive(route, path) {
+  if (!path) return false;
+  const matches = navItems().filter((r) => path === r.path || path.startsWith(`${r.path}/`));
+  const best = matches.sort((a, b) => b.path.length - a.path.length)[0];
+  return best?.path === route.path;
+}
 
 function link(route, active, compact) {
   return h('a', { href: `#${route.path}`, class: `navlink ${active ? 'is-active' : ''}`, 'aria-current': active ? 'page' : null },

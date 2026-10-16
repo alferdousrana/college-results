@@ -35,7 +35,7 @@ async function init(root, query) {
     onLoadMore: async () => { const page = await repo.listStudents({ ...sel, status: sel.status || null, limit: 100, after: cursor }); cursor = page.cursor; table.appendRows(page.items, { hasMore: Boolean(cursor) }); return { hasMore: Boolean(cursor) }; },
     columns: [
       { key: 'roll', label: tt('Roll', 'রোল'), sort: (r) => Number(r.current?.roll), render: (r) => fmtNum(r.current?.roll) },
-      { key: 'nameEn', label: tt('Name', 'নাম'), sortable: true, render: (r) => h('div', {}, h('button', { class: 'linklike', type: 'button', onclick: () => details(r) }, r.nameEn), r.nameBn ? h('div', { class: 'muted small' }, r.nameBn) : null) },
+      { key: 'nameEn', label: tt('Name', 'নাম'), sortable: true, render: (r) => h('div', {}, h('button', { class: 'name-link', type: 'button', onclick: () => details(r) }, r.nameEn), r.nameBn ? h('div', { class: 'muted small' }, r.nameBn) : null) },
       { key: 'group', label: tt('Group', 'বিভাগ'), render: (r) => nameOf(cats.groups, r.current?.groupId) },
       { key: 'studentCode', label: tt('Student ID', 'আইডি') },
       { key: 'status', label: tt('Status', 'অবস্থা'), render: (r) => h('span', { class: `badge badge--${r.status === 'active' ? 'good' : 'neutral'}` }, r.status) },

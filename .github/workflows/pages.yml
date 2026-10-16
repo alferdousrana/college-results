@@ -1,6 +1,6 @@
 # Test deployment on GitHub Pages:
 #   https://<user>.github.io/<repo>/              → the college app
-#   https://<user>.github.io/<repo>/dev-control/  → developer feature-control page (read-only)
+#   https://<user>.github.io/<repo>/dev-control/  → developer feature-control page (Firebase sign-in + secret answer)
 # Firebase web configuration comes from repository VARIABLES (Settings → Secrets and variables → Actions → Variables).
 # These values are public identifiers, not secrets; data is protected by firestore.rules.
 name: GitHub Pages
@@ -21,6 +21,7 @@ jobs:
     # Firebase values are given ONLY to the build step, never to the tests.
     env:
       BASE_PATH: /${{ github.event.repository.name }}/
+      BUILD_DEV_CONTROL: '1'
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -44,12 +45,8 @@ jobs:
           done
           [ $missing -eq 0 ] || exit 1
           npm run build
-      - name: Add developer control page
-        run: |
-          mkdir -p dist/dev-control
-          cp dev-control/index.html dist/dev-control/
-          cp config/feature-flags.json dist/dev-control/feature-flags.json
-          find dist -name '*.map' -delete
+      - name: Remove source maps
+        run: find dist -name '*.map' -delete
       - uses: actions/upload-pages-artifact@v3
         with: { path: dist }
   deploy:

@@ -15,12 +15,16 @@ export function byId(list) { return Object.fromEntries((list ?? []).map((x) => [
 
 export function nameOf(list, id) { const x = (list ?? []).find((i) => i.id === id); return x ? L(x.name ?? x.label) : id ?? ''; }
 
-/** Runs an async action with a toast for success/failure; returns the result or undefined. */
+/**
+ * Runs an async action with a toast for success/failure.
+ * Returns the action's result (or `true` when it returns nothing) on success, `undefined` on failure,
+ * so callers can test `!== undefined` even for actions that return no value.
+ */
 export async function run(fn, { success = null } = {}) {
   try {
     const r = await fn();
     if (success) toast(success, 'success');
-    return r;
+    return r === undefined ? true : r;
   } catch (e) {
     console.error(e);
     toast(friendlyError(e), 'error');

@@ -8,7 +8,7 @@ Nothing has been deployed yet. Order of the guided setup:
 4. **Vercel**: import the GitHub repository; framework "Other"; build `npm run build`; output `dist`; add the `VITE_FIREBASE_*` variables (Production and Preview). `vercel.json` sets headers and no caching for `sw.js`.
 5. **First Super Admin**: the administrator requests an account in the deployed app; the developer runs `scripts/admin/bootstrap-admin.mjs <email>` once with a service-account key on a trusted machine, then deletes the key file.
 6. **Optional App Check**: register reCAPTCHA v3, set `VITE_APPCHECK_SITE_KEY`, enforce App Check for Firestore after testing.
-7. **GitHub feature control**: create environment `feature-control` with required reviewer = developer and secret `FIREBASE_SERVICE_ACCOUNT`; enable GitHub Pages ("GitHub Actions" source) to publish `dev-control/`. Run the workflow once to create `featureFlags/global`.
+7. **Developer feature control**: follow the one-time setup in `FEATURE_FLAGS.md` (developer Auth user, `developers/<uid>`, `developerProfiles/<uid>`).
 8. **Smoke test** with a real teacher account on a phone: install, enter marks offline, reconnect, publish a test sheet, look it up.
 
 ## Test hosting on GitHub Pages (before Vercel)

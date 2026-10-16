@@ -23,7 +23,7 @@ async function mirror() {
 
 export function render(el) {
   const p = getPrefs();
-  const lang = h('select', { class: 'input', id: 'pref-lang', onchange: (e) => { setLanguage(e.target.value); mirror(); } },
+  const lang = h('select', { class: 'input input--compact', id: 'pref-lang', onchange: (e) => { setLanguage(e.target.value); mirror(); } },
     LANGUAGES.filter((l) => l.code === 'en' || isEnabled('bangla_interface')).map((l) => h('option', { value: l.code, selected: l.code === currentLang() }, l.label)));
   const themes = THEMES.filter((x) => x === 'light' || isEnabled('dark_theme')).map((x) => [x, t(`settings.theme.${x}`)]);
   const installBox = h('div');
@@ -38,12 +38,14 @@ export function render(el) {
   const offline = h('p', { class: 'muted' });
   if (backendKind() === 'firestore') import('../../core/firebase.js').then(({ getFirebase }) => { offline.textContent = t(`settings.cacheMode.${getFirebase().persistence}`); }).catch(() => {});
   else offline.textContent = backendKind() === 'demo' ? tt('Demo mode keeps data in this browser.', 'ডেমো মোডে ডেটা এই ব্রাউজারে থাকে।') : '';
+  const row = (label, control, forId = null) => h('div', { class: 'pref-row' }, forId ? h('label', { class: 'pref-row__label', for: forId }, label) : h('span', { class: 'pref-row__label' }, label), control);
   el.append(
-    h('div', { class: 'field' }, h('label', { class: 'field__label', for: 'pref-lang' }, t('settings.language')), lang),
-    h('div', { class: 'field' }, h('span', { class: 'field__label' }, t('settings.theme')), segmented('theme', themes, p.theme, (v) => { setTheme(v); mirror(); })),
-    h('div', { class: 'field' }, h('span', { class: 'field__label' }, tt('Table density', 'টেবিলের ঘনত্ব')), segmented('density', [['comfortable', tt('Comfortable', 'আরামদায়ক')], ['compact', tt('Compact', 'ঘন')]], p.density, (v) => { setPref('density', v); applyDisplayPrefs(); mirror(); })),
-    h('div', { class: 'field' }, h('span', { class: 'field__label' }, tt('Text size', 'লেখার আকার')), segmented('textSize', [['normal', tt('Normal', 'সাধারণ')], ['large', tt('Large', 'বড়')]], p.textSize, (v) => { setPref('textSize', v); applyDisplayPrefs(); mirror(); })),
-    h('div', { class: 'field field--check' }, h('input', { type: 'checkbox', class: 'checkbox', id: 'pref-motion', checked: p.reduceMotion, onchange: (e) => { setPref('reduceMotion', e.target.checked); applyDisplayPrefs(); mirror(); } }), h('label', { for: 'pref-motion' }, tt('Reduce animations', 'অ্যানিমেশন কমান'))),
+    h('div', { class: 'pref-list' },
+      row(t('settings.language'), lang, 'pref-lang'),
+      row(t('settings.theme'), segmented('theme', themes, p.theme, (v) => { setTheme(v); mirror(); })),
+      row(tt('Table density', 'টেবিলের ঘনত্ব'), segmented('density', [['comfortable', tt('Comfortable', 'আরামদায়ক')], ['compact', tt('Compact', 'ঘন')]], p.density, (v) => { setPref('density', v); applyDisplayPrefs(); mirror(); })),
+      row(tt('Text size', 'লেখার আকার'), segmented('textSize', [['normal', tt('Normal', 'সাধারণ')], ['large', tt('Large', 'বড়')]], p.textSize, (v) => { setPref('textSize', v); applyDisplayPrefs(); mirror(); })),
+      row(tt('Animations', 'অ্যানিমেশন'), h('label', { class: 'check-chip', for: 'pref-motion' }, h('input', { type: 'checkbox', class: 'checkbox', id: 'pref-motion', checked: p.reduceMotion, onchange: (e) => { setPref('reduceMotion', e.target.checked); applyDisplayPrefs(); mirror(); } }), h('span', {}, tt('Reduce animations', 'অ্যানিমেশন কমান'))))),
     h('h3', { class: 'form-section' }, t('settings.install')), h('p', {}, t('settings.installBody')), installBox,
     h('h3', { class: 'form-section' }, t('settings.offline')), h('p', {}, t('settings.offlineBody')), offline,
     h('div', { class: 'row-actions' }, h('button', { class: 'btn btn--ghost btn--sm', type: 'button', onclick: async (e) => {

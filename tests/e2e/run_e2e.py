@@ -35,6 +35,7 @@ async def main():
         # Default experience: English + light, not configured → setup screen offers demo.
         await page.goto(f'{BASE}/#/admin'); await page.wait_for_url(re.compile('setup'), timeout=10000); await page.wait_for_timeout(500)
         check('defaults to English and light', await page.evaluate("document.documentElement.lang") == 'en' and await page.evaluate("document.documentElement.dataset.theme") == 'light')
+        await page.wait_for_selector('text=Connect the database', timeout=10000)
         check('unconfigured app shows setup screen', 'Connect the database' in await page.inner_text('main'))
         await page.goto(f'{BASE}/#/demo'); await page.get_by_role('button', name='Open demo mode').click()
         await page.wait_for_selector('.persona', timeout=20000)
@@ -47,9 +48,20 @@ async def main():
         await page.screenshot(path=f'{OUT}/admin-dashboard.png', full_page=True)
         await page.goto(f'{BASE}/#/admin/students'); await page.wait_for_timeout(1000); await page.select_option('select[name=sc]', 'class-11'); await page.wait_for_timeout(1200)
         check('students page lists class 11 with server pagination', 'Ayesha' in await page.inner_text('main'))
-        await page.goto(f'{BASE}/#/admin/assignments'); await page.wait_for_timeout(1000); await page.select_option('select[name=ac]', 'class-11'); await page.wait_for_timeout(1200)
-        check('assignments page lists teachers per subject', 'Rahima Begum' in await page.inner_text('main'))
-        for path, text in [('/admin/sheets', 'Annual Examination 2026'), ('/admin/teachers', 'Sumon Das'), ('/admin/classes', 'Class Eleven'),
+        await page.goto(f'{BASE}/#/admin/assignments'); await page.wait_for_timeout(1000); await page.get_by_role('button', name='Class Eleven').click(); await page.wait_for_timeout(1200)
+        txt = await page.inner_text('main')
+        check('assignments grouped into common and group sections', 'Rahima Begum' in txt and 'Common subjects' in txt and 'Science' in txt)
+        before = await page.locator('.assign-row', has_text='Physics').locator('.chip').count()
+        await page.locator('.assign-row', has_text='Physics').get_by_role('button', name='Assign').click()
+        await page.locator('dialog[open]').get_by_role('button', name='Assign').click(); await page.wait_for_timeout(1500)
+        check('assigning closes the dialog and updates the list without reload', await page.locator('dialog[open]').count() == 0 and await page.locator('.assign-row', has_text='Physics').locator('.chip').count() == before + 1)
+        await page.goto(f'{BASE}/#/admin/teachers'); await page.wait_for_timeout(1500)
+        tabs_text = await page.locator('.tabs').inner_text()
+        check('teachers tabs: Approved, Requests, Disabled', tabs_text.index('Approved') < tabs_text.index('Requests') < tabs_text.index('Disabled'))
+        await page.get_by_role('tab', name=re.compile('Requests')).click(); await page.wait_for_timeout(800)
+        await page.get_by_role('button', name='Approve').first.click(); await page.locator('dialog[open]').get_by_role('button', name='Approve').click(); await page.wait_for_timeout(1500)
+        check('approving updates the list immediately', 'Sumon Das' not in await page.inner_text('.tabs__panel'))
+        for path, text in [('/admin/sheets', 'Annual Examination 2026'), ('/admin/classes', 'Class Eleven'),
                            ('/admin/subjects', 'Higher Mathematics'), ('/admin/archive', 'Half-Yearly'), ('/admin/audit', 'Results published')]:
             await page.goto(f'{BASE}/#{path}'); await page.wait_for_timeout(1200)
             check(f'page {path} loads data', text in await page.inner_text('main'))
@@ -141,6 +153,19 @@ async def main():
         await ctx.set_offline(False); await page.evaluate("window.dispatchEvent(new Event('online'))"); await page.wait_for_timeout(4000)
         check('pending edit syncs when back online', 'All changes saved' in await page.inner_text('.save-status'), await page.inner_text('.save-status'))
         await page.screenshot(path=f'{OUT}/mark-entry.png', full_page=True)
+
+        # Submit a fully entered subject → back button gets focus
+        await page.goto(f"{BASE}/#/marks?sid=2026__class-11__annual&subject=chemistry"); await page.wait_for_selector('.mg-input')
+        n = await page.locator('tbody tr').count()
+        for r in range(n):
+            for c in range(3):
+                inp = page.locator(f'input[data-row="{r}"][data-col="{c}"]')
+                if await inp.is_enabled() and not await inp.input_value(): await inp.fill('20')
+        await page.wait_for_timeout(4000)
+        await page.get_by_role('button', name='Submit subject').click(); await page.locator('dialog[open]').get_by_role('button', name='Submit').click()
+        await page.wait_for_timeout(3500)
+        focused = await page.evaluate("document.activeElement && document.activeElement.className")
+        check('after submitting, "Back to examination" has focus', 'page-head__back' in (focused or ''), focused)
 
         # Mobile layouts
         m = await browser.new_context(viewport={'width': 390, 'height': 844}, is_mobile=True, has_touch=True)

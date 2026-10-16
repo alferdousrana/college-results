@@ -16,10 +16,12 @@ export const title = 'nav.teachers';
 
 export function render({ query }) {
   const root = h('section', { class: 'page' });
-  const paint = (active = query.get('tab') ?? 'pending') => {
+  const paint = async (active = query.get('tab') ?? 'active') => {
+    const { listTeachers } = await import('../../data/repositories/users-repository.js');
+    const pendingCount = (await listTeachers({ status: 'pending' }).catch(() => [])).length;
     const tabCtl = tabs([
-      { id: 'pending', label: tt('Requests', 'আবেদন'), render: (p) => list(p, 'pending') },
       { id: 'active', label: tt('Approved', 'অনুমোদিত'), render: (p) => list(p, 'active') },
+      { id: 'pending', label: tt('Requests', 'আবেদন'), badge: pendingCount || null, render: (p) => list(p, 'pending') },
       { id: 'disabled', label: tt('Disabled or rejected', 'নিষ্ক্রিয় বা প্রত্যাখ্যাত'), render: (p) => list(p, ['disabled', 'rejected']) },
     ], { active });
     root.replaceChildren(pageHeader({ title: t('nav.teachers'), actions: [linkButton(t('nav.assignments'), '#/admin/assignments'), button(tt('Create teacher account', 'শিক্ষক অ্যাকাউন্ট তৈরি'), { kind: 'primary', icon: 'plus', onClick: () => create(paint) })] }), tabCtl.el);

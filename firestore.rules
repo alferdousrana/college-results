@@ -208,8 +208,52 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ---------- feature flags (written only by the GitHub Actions Admin SDK job) ----------
-    match /featureFlags/{doc} { allow read: if true; allow write: if false; }
+    // ---------- developer feature control (dev-control page) ----------
+    // A developer = an Auth account listed in developers/{uid} (created ONLY in the Firebase console).
+    // Changing flags additionally needs an unexpired developerSessions/{uid} whose `proof` equals the
+    // stored answerHash (SHA-256 of uid + secret answer, computed in the browser). The hash itself is
+    // never readable by any client.
+    function devPath(u) { return /databases/$(database)/documents/developers/$(u); }
+    function devSessionPath(u) { return /databases/$(database)/documents/developerSessions/$(u); }
+    function isDeveloper() {
+      return signedIn() && exists(devPath(uid())) && exists(devSessionPath(uid()))
+        && get(devSessionPath(uid())).data.expiresAt > request.time
+        && get(devSessionPath(uid())).data.proof == get(devPath(uid())).data.answerHash;
+    }
+    match /developers/{devId} { allow read, write: if false; }
+    match /developerProfiles/{devId} {
+      allow read: if signedIn() && uid() == devId; // the secret question text only
+      allow write: if false;
+    }
+    match /developerSessions/{devId} {
+      allow read, delete: if signedIn() && uid() == devId;
+      allow create, update: if signedIn() && uid() == devId && exists(devPath(devId))
+        && request.resource.data.keys().hasOnly(['proof', 'createdAt', 'expiresAt'])
+        && request.resource.data.proof == get(devPath(devId)).data.answerHash
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt <= request.time + duration.value(30, 'm');
+    }
+    function validFlags() {
+      let d = request.resource.data;
+      return d.keys().hasOnly(['version', 'updatedAt', 'updatedBy', 'upgradeUrl', 'features'])
+        && d.features is map && d.features.size() <= 50
+        && d.updatedBy == uid() && d.updatedAt == request.time
+        && (d.upgradeUrl == null || (d.upgradeUrl is string && d.upgradeUrl.matches('^https://\\S{1,300}$')));
+    }
+    // Feature flags: everyone may read; only a verified developer may change them. Flags never grant
+    // permissions — every rule above is independent of them.
+    match /featureFlags/{doc} {
+      allow read: if true;
+      allow create: if doc == 'global' && isDeveloper() && validFlags() && request.resource.data.version == 1;
+      allow update: if doc == 'global' && isDeveloper() && validFlags() && request.resource.data.version == resource.data.version + 1;
+      allow delete: if false;
+    }
+    match /featureFlagHistory/{id} {
+      allow read: if isDeveloper();
+      allow create: if isDeveloper() && request.resource.data.by == uid() && request.resource.data.at == request.time;
+      allow update, delete: if false;
+    }
 
     // ---------- everything else ----------
     match /{document=**} { allow read, write: if false; }

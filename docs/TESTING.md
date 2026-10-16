@@ -3,8 +3,8 @@
 | Command | What it runs | Status at the end of Phase 2 |
 |---|---|---|
 | `npm test` | Unit tests (Vitest, jsdom, fake-indexeddb) and workflow tests on the demo backend | **97 passing** |
-| `npm run test:e2e` | Builds, serves the production build, drives headless Chromium in demo mode (`tests/e2e/run_e2e.py`) | **50 / 50 checks passing**; screenshots and PDFs in `tests/e2e/out/` |
-| `npm run test:rules` | Security rules against the Firestore emulator (`vitest.rules.config.js`) | **Not run** — emulator download blocked in the build environment |
+| `npm run test:e2e` | Builds, serves the production build, drives headless Chromium in demo mode (`tests/e2e/run_e2e.py`) | **53 / 53 checks passing**; screenshots and PDFs in `tests/e2e/out/` |
+| `npm run test:rules` | Security rules against the Firestore emulator (`vitest.rules.config.js`) | Runs in GitHub Actions before every rules/index deploy (`firestore-deploy.yml`); passed on the first deploy; 18 cases now including developer feature control |
 | `npm run build` | Production build | passing |
 | `npm run validate:flags` | Feature configuration | passing |
 

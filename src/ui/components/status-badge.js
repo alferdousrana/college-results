@@ -15,7 +15,7 @@ export function examStateBadge(state) {
 export function lifecycleStrip(state) {
   const idx = LIFECYCLE_ORDER.indexOf(state);
   return h('ol', { class: 'lifecycle', 'aria-label': 'Result sheet progress' },
-    LIFECYCLE_ORDER.slice(0, 6).map((s, i) => h('li', {
+    (state === 'archived' ? LIFECYCLE_ORDER : LIFECYCLE_ORDER.slice(0, 6)).map((s, i) => h('li', {
       class: `lifecycle__step ${i < idx ? 'is-done' : ''} ${i === idx ? 'is-current' : ''}`,
       'aria-current': i === idx ? 'step' : null,
     }, h('span', { class: 'lifecycle__label' }, t(`exam.state.${s}`)))));
