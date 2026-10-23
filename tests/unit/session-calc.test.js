@@ -103,3 +103,18 @@ describe('dates from the routine', () => {
     expect(examDateRange(r, 'C')).toBeNull();
   });
 });
+
+import { countdown, isPastDeadline, greeting } from '../../src/domain/deadline.js';
+describe('mark-entry deadline', () => {
+  it('counts down and closes after the deadline', () => {
+    const now = Date.UTC(2026, 10, 1, 0, 0, 0);
+    expect(countdown(now + 90061000, now)).toMatchObject({ days: 1, hours: 1, minutes: 1, seconds: 1 });
+    expect(isPastDeadline({ markEntryDeadline: now - 1 }, now)).toBe(true);
+    expect(isPastDeadline({ markEntryDeadline: new Date(now + 1).toISOString() }, now)).toBe(false);
+    expect(isPastDeadline({}, now)).toBe(false);
+  });
+  it('greets by time of day', () => {
+    expect(greeting(new Date(2026, 0, 1, 8)).bn).toBe('সুপ্রভাত');
+    expect(greeting(new Date(2026, 0, 1, 19)).en).toBe('Good evening');
+  });
+});

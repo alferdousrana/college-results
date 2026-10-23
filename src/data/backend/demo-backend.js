@@ -57,6 +57,8 @@ export function createDemoBackend({ storage = null, seed = null } = {}) {
         case 'increment': obj[last] = (typeof cur === 'number' ? cur : 0) + value.by; break;
         default: throw new Error('unknown op');
       }
+    } else if (value instanceof Date) {
+      obj[last] = value.getTime(); // stored like a Timestamp (ms)
     } else if (value && typeof value === 'object' && !Array.isArray(value)) {
       if (!deep || typeof obj[last] !== 'object' || obj[last] === null || Array.isArray(obj[last])) obj[last] = {};
       for (const [k, v] of Object.entries(value)) setField(obj[last], [k], v, deep);

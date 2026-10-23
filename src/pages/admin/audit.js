@@ -21,7 +21,7 @@ const LABELS = () => ({
   public_lookup_withdrawn: tt('Removed from public lookup', 'পাবলিক অনুসন্ধান থেকে সরানো'), settings_changed: tt('Settings changed', 'সেটিংস পরিবর্তন'),
   catalogue_changed: tt('Class/subject list changed', 'শ্রেণি/বিষয় তালিকা পরিবর্তন'), student_created: tt('Student added', 'শিক্ষার্থী যোগ'), student_updated: tt('Student edited', 'শিক্ষার্থী সম্পাদনা'),
   student_status_changed: tt('Student status changed', 'শিক্ষার্থীর অবস্থা পরিবর্তন'), students_imported: tt('Students imported', 'শিক্ষার্থী ইমপোর্ট'), bootstrap_super_admin: tt('Administrator set up', 'প্রশাসক নির্ধারণ'),
-  session_deleted: tt('Result sheet deleted', 'ফলাফল শিট মোছা'), public_lookup_updated: tt('Public lookup updated', 'পাবলিক অনুসন্ধান হালনাগাদ'),
+  session_deleted: tt('Result sheet deleted', 'ফলাফল শিট মোছা'), routine_saved: tt('Routine saved', 'সময়সূচি সংরক্ষণ'), routine_deleted: tt('Routine deleted', 'সময়সূচি মোছা'), public_lookup_updated: tt('Public lookup updated', 'পাবলিক অনুসন্ধান হালনাগাদ'),
   staff_created: tt('Staff added', 'কর্মচারী যোগ'), staff_updated: tt('Staff edited', 'কর্মচারী সম্পাদনা'), staff_deleted: tt('Staff deleted', 'কর্মচারী মোছা'), teacher_updated: tt('Teacher edited', 'শিক্ষক সম্পাদনা'), student_deleted: tt('Student deleted', 'শিক্ষার্থী মোছা'),
   teacher_deleted: tt('Teacher deleted', 'শিক্ষক মোছা'), teacher_updated: tt('Teacher details changed', 'শিক্ষকের তথ্য পরিবর্তন'), catalogue_deleted: tt('Class/subject item deleted', 'শ্রেণি/বিষয় মোছা'),
 });

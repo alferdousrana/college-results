@@ -18,6 +18,7 @@ export const ROUTES = [
   { path: '/admin/sheets', access: 'admin', load: () => import('../pages/admin/sheets.js'), nav: 'nav.resultSheets', icon: 'sheet', navFor: A },
   { path: '/admin/sheet/new', access: 'admin', load: () => import('../pages/admin/sheet-wizard.js') },
   { path: '/admin/sheet', access: 'admin', load: () => import('../pages/admin/sheet-detail.js') },
+  { path: '/admin/routines', access: 'admin', load: () => import('../pages/admin/routines.js'), nav: 'nav.routines', icon: 'sheet', navFor: A },
   { path: '/admin/students', access: 'admin', load: () => import('../pages/admin/students.js'), nav: 'nav.students', icon: 'users', navFor: A },
   { path: '/admin/students/import', access: 'admin', load: () => import('../pages/admin/student-import.js') },
   { path: '/admin/teachers', access: 'admin', load: () => import('../pages/admin/teachers.js'), nav: 'nav.teachers', icon: 'users', navFor: A },

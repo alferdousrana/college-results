@@ -70,7 +70,7 @@ export async function saveDraft(actor, existingId, payload) {
     const base = {
       yearId: payload.yearId, classId: payload.classId, examDefId: payload.examDefId,
       title: payload.title, heldOn: payload.heldOn ?? null, startDate: payload.startDate ?? null, endDate: payload.endDate ?? null,
-      notes: payload.notes ?? null, groupIds, teacherIds, studentCount: payload.roster.length, subjectCount: subjects.length,
+      notes: payload.notes ?? null, markEntryDeadline: payload.markEntryDeadline ?? null, groupIds, teacherIds, studentCount: payload.roster.length, subjectCount: subjects.length,
       updatedAt: serverTime(),
     };
     if (cur) tx.update(paths.session(sid), base);
@@ -159,6 +159,15 @@ export async function reassignTeachers(actor, sid, subjectId, teacherIds, teache
 }
 
 /** Late roster changes (after sharing, before review). Marks of a removed student are kept. */
+/** Sets or clears the teachers' mark-entry deadline (enforced by the database rules). */
+export async function setMarkEntryDeadline(actor, sid, date) {
+  const b = await getBackend();
+  const batch = b.batch();
+  batch.update(paths.session(sid), { markEntryDeadline: date ?? null, updatedAt: serverTime() });
+  addAudit(b, batch, { action: AuditAction.SESSION_UPDATED, actor, targetPath: paths.session(sid), after: { markEntryDeadline: date ? date.toISOString() : null } });
+  await batch.commit();
+}
+
 export async function upsertEnrollment(actor, sid, row) {
   const b = await getBackend();
   const s = await b.get(paths.session(sid));

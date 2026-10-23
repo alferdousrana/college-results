@@ -13,6 +13,7 @@ import { actor, byId, friendlyError, nameOf, run } from '../_shared.js';
 import { ExamState } from '../../domain/exam-lifecycle.js';
 import { findMissingMarks, subjectProgress, subjectDefinition, studentsForSubject } from '../../domain/session-calc.js';
 import { fmtDate, fmtNum } from '../../ui/format.js';
+import { deadlineMs, isPastDeadline } from '../../domain/deadline.js';
 import { shareFlow } from './share-flow.js';
 
 export const title = 'nav.resultSheets';
@@ -48,6 +49,17 @@ async function load(sid, root, initialTab) {
   if (st === ExamState.READY) actions.push(button(tt('Withdraw to draft', 'খসড়ায় ফেরত নিন'), { onClick: async () => {
     if (Object.values(marks).some((m) => Object.keys(m).length)) { toast(tt('Marks have already been entered, so the sheet cannot go back to draft.', 'ইতিমধ্যে নম্বর দেওয়া হয়েছে, তাই খসড়ায় ফেরানো যাবে না।'), 'error'); return; }
     if (await confirmDialog({ title: tt('Withdraw to draft?', 'খসড়ায় ফেরত নেবেন?'), body: tt('Teachers will no longer see this examination until you share it again.', 'আবার শেয়ার না করা পর্যন্ত শিক্ষকরা এটি দেখবেন না।'), confirmText: tt('Withdraw', 'ফেরত নিন') })) transition(ExamState.DRAFT);
+  } }));
+  if ([ExamState.DRAFT, ExamState.READY, ExamState.IN_PROGRESS].includes(st)) actions.push(button(tt('Mark-entry deadline', 'নম্বর দেওয়ার শেষ সময়'), { onClick: () => {
+    const p = (n) => String(n).padStart(2, '0');
+    const cur = deadlineMs(s); const d0 = cur ? new Date(cur) : null;
+    const input = h('input', { class: 'input', type: 'datetime-local', value: d0 ? `${d0.getFullYear()}-${p(d0.getMonth() + 1)}-${p(d0.getDate())}T${p(d0.getHours())}:${p(d0.getMinutes())}` : '', 'aria-label': tt('Deadline', 'শেষ সময়') });
+    openModal({ title: tt('Teachers can enter marks until', 'শিক্ষকরা নম্বর দিতে পারবেন যতক্ষণ'), size: 's',
+      content: h('div', {}, input, h('p', { class: 'muted small' }, tt('After this time teachers can no longer save marks (the database refuses them). You can still enter or correct marks yourself. Leave empty for no deadline.', 'এই সময়ের পর শিক্ষকরা আর নম্বর সংরক্ষণ করতে পারবেন না (ডেটাবেস গ্রহণ করবে না)। আপনি নিজে নম্বর দিতে বা ঠিক করতে পারবেন। শেষ সময় না চাইলে খালি রাখুন।'))),
+      actions: [{ label: t('common.cancel'), onClick: () => true }, { label: t('common.save'), kind: 'primary', onClick: async () => {
+        await act(() => sess.setMarkEntryDeadline(actor(), sid, input.value ? new Date(input.value) : null), tt('Deadline saved', 'শেষ সময় সংরক্ষিত'));
+        return true;
+      } }] });
   } }));
   if ([ExamState.READY, ExamState.IN_PROGRESS].includes(st)) actions.push(button(tt('Close mark entry', 'নম্বর প্রদান বন্ধ করুন'), { kind: 'primary', onClick: async () => {
     const warn = [unsubmitted.length ? tt('{n} subject(s) are not submitted by their teachers.', '{n}টি বিষয় শিক্ষকরা জমা দেননি।', { n: unsubmitted.length }) : null,
@@ -112,7 +124,8 @@ async function load(sid, root, initialTab) {
       button(tt('Finish deleting', 'মোছা শেষ করুন'), { kind: 'danger', size: 'sm', onClick: async () => { const { deleteResultSheet } = await import('../../data/repositories/deletion-repository.js'); if (await run(() => deleteResultSheet(actor(), sid, s.deleting.reason)) !== undefined) navigate('/admin/sheets'); } })) : null,
     h('div', { class: 'sheet-status' }, examStateBadge(st), s.correction ? h('span', { class: 'badge badge--warn' }, tt('Correction in progress: {r}', 'সংশোধন চলছে: {r}', { r: s.correction.reason })) : null,
       s.publishedVersion ? h('span', { class: 'muted' }, tt('Published version {v}', 'প্রকাশিত সংস্করণ {v}', { v: s.publishedVersion })) : null,
-      s.publicWithdrawn ? h('span', { class: 'badge badge--neutral' }, tt('Not in public lookup', 'পাবলিক অনুসন্ধানে নেই')) : null),
+      s.publicWithdrawn ? h('span', { class: 'badge badge--neutral' }, tt('Not in public lookup', 'পাবলিক অনুসন্ধানে নেই')) : null,
+      deadlineMs(s) && [ExamState.DRAFT, ExamState.READY, ExamState.IN_PROGRESS].includes(st) ? h('span', { class: `badge badge--${isPastDeadline(s) ? 'bad' : 'info'}` }, isPastDeadline(s) ? tt('Teachers\' mark entry closed {d}', 'শিক্ষকদের নম্বর দেওয়া বন্ধ হয়েছে {d}', { d: fmtDate(deadlineMs(s), { time: true }) }) : tt('Teachers can enter marks until {d}', 'শিক্ষকরা নম্বর দিতে পারবেন {d} পর্যন্ত', { d: fmtDate(deadlineMs(s), { time: true }) })) : null),
     lifecycleStrip(st), tabCtl.el);
 
   function overview() {

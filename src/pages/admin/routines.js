@@ -9,7 +9,7 @@ import { toast } from '../../ui/components/toast.js';
 import { navigate } from '../../app/router.js';
 import { actor, friendlyError, nameOf, run } from '../_shared.js';
 import { fmtDate } from '../../ui/format.js';
-import { cellKey, sortedDays, scheduleCheck, bnDigits } from '../../domain/routine.js';
+import { cellKey, sortedDays, scheduleCheck, bnDigits, bnDate } from '../../domain/routine.js';
 import { subjectDefinition, studentSubjectIds } from '../../domain/session-calc.js';
 import { subjectLabelForClass } from '../../domain/paper-scheme.js';
 import { ids } from '../../data/paths.js';
@@ -53,7 +53,10 @@ function editor(id) {
       return bundles.get(sid);
     };
     const parse = (sid) => { const [yearId, classId, examDefId] = String(sid).split('__'); return { yearId, classId, examDefId }; };
-    const st = { title: routine.title ?? '', note: routine.note ?? '', columns: [...(routine.columns ?? [])], slots: routine.slots?.length ? [...routine.slots] : [...DEFAULT_SLOTS], days: (routine.days ?? []).map((d) => ({ ...d, cells: { ...(d.cells ?? {}) } })) };
+    const st = { title: routine.title ?? '', note: routine.note ?? '', columns: [...(routine.columns ?? [])], slots: routine.slots?.length ? [...routine.slots] : [...DEFAULT_SLOTS], days: (routine.days ?? []).map((d) => ({ ...d, cells: { ...(d.cells ?? {}) } })),
+      duties: { ...(routine.duties ?? {}) }, committee: [...(routine.committee ?? [])], dutyPrefix: routine.dutyPrefix ?? 'জনাব',
+      admit: { sentence: 'তাকে {date} তারিখ পর্যন্ত / পূর্ণ অনুমতি দেওয়া হলো।', validUntil: '', ...(routine.admit ?? {}) },
+      seat: { perPage: 12, fields: ['exam', 'class', 'roll', 'name'], ...(routine.seat ?? {}) } };
     for (const c of st.columns) { Object.assign(c, { ...parse(c.sessionId), ...c }); await bundleOf(c.sessionId); }
     let dirty = false;
     const mark = () => { dirty = true; saveState.hidden = false; };
@@ -61,7 +64,7 @@ function editor(id) {
     const save = async () => {
       if (st.days.some((d) => !d.date)) { toast(tt('Every row needs a date. Fill in or remove the empty rows.', 'প্রতিটি সারিতে তারিখ লাগবে। খালি সারিতে তারিখ দিন বা সারিটি সরান।'), 'error'); return; }
       const days = st.days.filter((d) => d.date).map((d) => ({ id: d.id, date: d.date, cells: Object.fromEntries(Object.entries(d.cells).filter(([, v]) => v?.length)) }));
-      if (await run(() => repo.saveRoutine(actor(), id, { title: st.title, note: st.note, columns: st.columns, slots: st.slots, days }), { success: tt('Routine saved', 'সময়সূচি সংরক্ষিত') }) !== undefined) { dirty = false; saveState.hidden = true; }
+      if (await run(() => repo.saveRoutine(actor(), id, { title: st.title, note: st.note, columns: st.columns, slots: st.slots, days, duties: st.duties, committee: st.committee.filter((m) => m.name), dutyPrefix: st.dutyPrefix, admit: st.admit, seat: st.seat }), { success: tt('Routine saved', 'সময়সূচি সংরক্ষিত') }) !== undefined) { dirty = false; saveState.hidden = true; }
     };
     const defsOf = (sid) => {
       const b = bundles.get(sid);
@@ -154,6 +157,28 @@ function editor(id) {
         dirty ? h('p', { class: 'notice notice--locked' }, tt('Unsaved changes are shown; save them in the first tab.', 'অসংরক্ষিত পরিবর্তন দেখানো হচ্ছে; প্রথম ট্যাবে সংরক্ষণ করুন।')) : null), area);
     }
 
+    /** Students of one column: from its result sheet if it exists, otherwise the class list. */
+    async function studentsFor(col) {
+      const bundle = await bundleOf(col.sessionId);
+      const defs = defsOf(col.sessionId);
+      const order = (g) => cats.groups.find((x) => x.id === g)?.order ?? 99;
+      // Without a result sheet: the class's active students and the subjects saved on their records.
+      let roster;
+      if (bundle) roster = bundle.enrollments.filter((e) => e.status !== 'withdrawn').map((e) => ({ ...e, subjectIds: studentSubjectIds(bundle, e) }));
+      else {
+        const { listClassRoster } = await import('../../data/repositories/students-repository.js');
+        const { yearId, classId } = parse(col.sessionId);
+        roster = (await listClassRoster(yearId, classId)).map((x) => {
+          const g = x.current.groupId;
+          const compulsory = cats.subjects.filter((sub) => sub.active !== false && (!sub.classIds?.length || sub.classIds.includes(classId)) && (!sub.groupIds?.length || sub.groupIds.includes(g)) && (sub.groupRoles?.[g] ?? 'compulsory') === 'compulsory').map((sub) => sub.id);
+          return { roll: x.current.roll, name: { en: x.nameEn, bn: x.nameBn }, groupId: g, optionalSubjectId: x.current.optionalSubjectId ?? null, subjectIds: [...new Set([...compulsory, ...(x.current.subjectIds ?? [])])] };
+        });
+      }
+      return roster.sort((a, b) => order(a.groupId) - order(b.groupId) || Number(a.roll) - Number(b.roll))
+        .map((e) => ({ name: e.name?.bn || e.name?.en || '', roll: e.roll, groupLabel: `${L(cats.groups.find((x) => x.id === e.groupId)?.name, 'bn')} বিভাগ`, groupId: e.groupId, groupName: L(cats.groups.find((x) => x.id === e.groupId)?.name, 'bn'),
+          fourthName: e.optionalSubjectId ? L(defs[e.optionalSubjectId]?.name, 'bn') || '' : '', subjectIds: e.subjectIds }));
+    }
+
     async function attendanceTab(panel) {
       if (!st.columns.length) { panel.replaceChildren(emptyState({ message: tt('Add a class and examination to the routine first.', 'আগে সময়সূচিতে একটি শ্রেণি ও পরীক্ষা যোগ করুন।') })); return; }
       const ctx = await getPrintContextFromSettings();
@@ -165,24 +190,8 @@ function editor(id) {
         st.columns.map((c, i) => h('option', { value: i }, c.label)));
       const paint = async () => {
         const col = st.columns[colIdx];
-        const bundle = await bundleOf(col.sessionId);
         const defs = defsOf(col.sessionId);
-        const order = (g) => cats.groups.find((x) => x.id === g)?.order ?? 99;
-        // Without a result sheet: the class's active students and the subjects saved on their records.
-        let roster;
-        if (bundle) roster = bundle.enrollments.filter((e) => e.status !== 'withdrawn').map((e) => ({ ...e, subjectIds: studentSubjectIds(bundle, e) }));
-        else {
-          const { listClassRoster } = await import('../../data/repositories/students-repository.js');
-          const { yearId, classId } = parse(col.sessionId);
-          roster = (await listClassRoster(yearId, classId)).map((x) => {
-            const g = x.current.groupId;
-            const compulsory = cats.subjects.filter((sub) => sub.active !== false && (!sub.classIds?.length || sub.classIds.includes(classId)) && (!sub.groupIds?.length || sub.groupIds.includes(g)) && (sub.groupRoles?.[g] ?? 'compulsory') === 'compulsory').map((sub) => sub.id);
-            return { roll: x.current.roll, name: { en: x.nameEn, bn: x.nameBn }, groupId: g, optionalSubjectId: x.current.optionalSubjectId ?? null, subjectIds: [...new Set([...compulsory, ...(x.current.subjectIds ?? [])])] };
-          });
-        }
-        const students = roster.sort((a, b) => order(a.groupId) - order(b.groupId) || Number(a.roll) - Number(b.roll))
-          .map((e) => ({ name: e.name?.bn || e.name?.en || '', roll: e.roll, groupLabel: `${L(cats.groups.find((x) => x.id === e.groupId)?.name, 'bn')} বিভাগ`, groupId: e.groupId,
-            fourthName: e.optionalSubjectId ? L(defs[e.optionalSubjectId]?.name, 'bn') || '' : '', subjectIds: e.subjectIds }));
+        const students = await studentsFor(col);
         // Each group starts on its own page.
         const pages = [];
         for (const g of [...new Set(students.map((x) => x.groupId))]) pages.push(...renderAttendance(st, { ...col, defs }, students.filter((x) => x.groupId === g), ctx, { examTitle: col.label }));
@@ -194,10 +203,114 @@ function editor(id) {
       paint();
     }
 
+    async function printing() {
+      const [ctx, r, { printContainer }, { ensurePrintFonts }] = await Promise.all([getPrintContextFromSettings(), import('../../print/routine.js'), import('../../print/print-runner.js'), import('../../print/fonts.js')]);
+      await ensurePrintFonts();
+      return { ctx, r, printContainer };
+    }
+    const colMeta = (col) => {
+      const { yearId, classId } = parse(col.sessionId);
+      return { examTitle: col.label, classLabel: L(cats.classes.find((c) => c.id === classId)?.name, 'bn'), sessionLabel: cats.years.find((y) => y.id === yearId)?.label ?? yearId };
+    };
+    const saveRow = () => h('div', { class: 'save-bar no-print' }, saveState, button(t('common.save'), { kind: 'primary', onClick: save }));
+
+    async function dutiesTab(panel) {
+      panel.replaceChildren(loadingState());
+      const [{ listActiveTeachers }, { listStaff }, { ctx, r, printContainer }] = await Promise.all([import('../../data/repositories/users-repository.js'), import('../../data/repositories/staff-repository.js'), printing()]);
+      const teachers = await listActiveTeachers();
+      const staff = (await listStaff()).filter((x) => x.status !== 'inactive');
+      const people = { teachers: Object.fromEntries(teachers.map((x) => [x.id, x.customFields?.nameBn || x.displayName])), staff: Object.fromEntries(staff.map((x) => [x.id, L(x.name, 'bn') || L(x.name, 'en')])) };
+      const area = h('div', { class: 'print-area' });
+      const repaint = () => area.replaceChildren(r.renderDuties(st, st.columns.map((c) => ({ ...c, defs: defsOf(c.sessionId) })), people, ctx));
+      const picker = (day, kind, list) => {
+        const duty = (st.duties[day.id] ??= { teacherIds: [], staffIds: [] });
+        const key = kind === 'teacher' ? 'teacherIds' : 'staffIds';
+        const box = h('div', { class: 'rt-cell' });
+        const paintBox = () => box.replaceChildren(...duty[key].map((pid, i) => h('span', { class: 'chip' }, `${kind === 'teacher' ? `${bnDigits(i + 1)}) ` : '❖ '}${(kind === 'teacher' ? people.teachers : people.staff)[pid] ?? pid}`,
+          h('button', { class: 'chip__x', type: 'button', 'aria-label': tt('Remove', 'সরান'), onclick: () => { duty[key].splice(i, 1); mark(); paintBox(); repaint(); } }, '×'))),
+          h('select', { class: 'input input--sm', 'aria-label': kind === 'teacher' ? tt('Add teacher', 'শিক্ষক যোগ') : tt('Add staff', 'কর্মচারী যোগ'), onchange: (e) => { if (e.target.value) { duty[key].push(e.target.value); mark(); paintBox(); repaint(); } } },
+            h('option', { value: '' }, kind === 'teacher' ? tt('+ teacher', '+ শিক্ষক') : tt('+ staff', '+ কর্মচারী')), list.filter((x) => !duty[key].includes(x.id)).map((x) => h('option', { value: x.id }, (kind === 'teacher' ? people.teachers : people.staff)[x.id]))));
+        paintBox();
+        return box;
+      };
+      const days = sortedDays(st);
+      const prefix = h('input', { class: 'input input--sm', value: st.dutyPrefix, 'aria-label': tt('Title before names', 'নামের আগে'), oninput: (e) => { st.dutyPrefix = e.target.value; mark(); repaint(); } });
+      const committeeBox = h('div');
+      const paintCommittee = () => committeeBox.replaceChildren(...st.committee.map((m, i) => h('div', { class: 'row-actions' },
+        h('input', { class: 'input input--sm', value: m.name, placeholder: tt('Name', 'নাম'), oninput: (e) => { m.name = e.target.value; mark(); repaint(); } }),
+        h('input', { class: 'input input--sm', value: m.designation ?? '', placeholder: tt('Designation', 'পদবি'), oninput: (e) => { m.designation = e.target.value; mark(); repaint(); } }),
+        button(tt('Remove', 'সরান'), { size: 'sm', kind: 'danger-ghost', onClick: () => { st.committee.splice(i, 1); mark(); paintCommittee(); repaint(); } }))),
+        button(tt('Add committee member', 'কমিটির সদস্য যোগ'), { size: 'sm', icon: 'plus', onClick: () => { st.committee.push({ name: '', designation: '' }); paintCommittee(); } }));
+      paintCommittee();
+      panel.replaceChildren(
+        h('div', { class: 'no-print' },
+          h('p', { class: 'muted' }, tt('Dates and subjects come from the routine. Choose the teachers (numbered) and one or two staff members for each day.', 'তারিখ ও বিষয় সময়সূচি থেকে আসে। প্রতিদিনের জন্য শিক্ষক (ক্রমিকসহ) ও এক-দুজন কর্মচারী বাছুন।')),
+          days.length ? h('div', { class: 'table-scroll' }, h('table', { class: 'data-table rt-grid' }, h('thead', {}, h('tr', {}, h('th', {}, tt('Date', 'তারিখ')), h('th', {}, tt('Invigilators (teachers)', 'কক্ষ প্রত্যবেক্ষক (শিক্ষক)')), h('th', {}, tt('Staff', 'কর্মচারী')))),
+            h('tbody', {}, days.map((d) => h('tr', {}, h('td', {}, bnDate(d.date).date, h('div', { class: 'muted small' }, bnDate(d.date).day)), h('td', {}, picker(d, 'teacher', teachers)), h('td', {}, picker(d, 'staff', staff))))))) : h('p', { class: 'notice' }, tt('Add dates in the routine first.', 'আগে সময়সূচিতে তারিখ যোগ করুন।')),
+          h('div', { class: 'row-actions' }, h('label', { class: 'field field--inline' }, h('span', { class: 'field__label' }, tt('Title before names', 'নামের আগে')), prefix)),
+          h('h3', { class: 'form-section' }, tt('Examination committee (printed at the end)', 'পরীক্ষা কমিটি (শেষে ছাপা হবে)')), committeeBox,
+          saveRow(),
+          h('div', { class: 'print-controls' }, button(tt('Print duty sheet', 'দায়িত্ব তালিকা প্রিন্ট'), { kind: 'primary', icon: 'print', onClick: () => printContainer(area, { pageNumbers: false }) }))),
+        area);
+      repaint();
+    }
+
+    function columnPicker(onChange) {
+      return h('select', { class: 'input input--compact', 'aria-label': tt('Class and examination', 'শ্রেণি ও পরীক্ষা'), onchange: (e) => onChange(Number(e.target.value)) }, st.columns.map((c, i) => h('option', { value: i }, c.label)));
+    }
+
+    async function admitTab(panel) {
+      if (!st.columns.length) { panel.replaceChildren(emptyState({ message: tt('Add a class and examination to the routine first.', 'আগে সময়সূচিতে একটি শ্রেণি ও পরীক্ষা যোগ করুন।') })); return; }
+      const { ctx, r, printContainer } = await printing();
+      const { examDateRange } = await import('../../domain/routine.js');
+      let colIdx = 0;
+      const area = h('div', { class: 'print-area' });
+      const until = h('input', { class: 'input input--compact', type: 'date', 'aria-label': tt('Valid until', 'যে তারিখ পর্যন্ত') });
+      const sentence = h('input', { class: 'input', value: st.admit.sentence, 'aria-label': tt('Sentence', 'বাক্য'), oninput: (e) => { st.admit.sentence = e.target.value; mark(); paint(); } });
+      const paint = async () => {
+        const col = st.columns[colIdx];
+        if (!until.value) until.value = st.admit.validUntil || examDateRange([st], col.sessionId)?.last || '';
+        const students = await studentsFor(col);
+        area.replaceChildren(...(students.length ? r.renderAdmitCards(students, { ...colMeta(col), validUntil: until.value, sentence: st.admit.sentence }, ctx) : [emptyState({ message: tt('No students found for this class and session.', 'এই শ্রেণি ও সেশনে কোনো শিক্ষার্থী পাওয়া যায়নি।') })]));
+      };
+      until.addEventListener('change', () => { st.admit.validUntil = until.value; mark(); paint(); });
+      panel.replaceChildren(h('div', { class: 'print-controls no-print' }, columnPicker((i) => { colIdx = i; until.value = ''; paint(); }),
+        h('label', { class: 'field field--inline' }, h('span', { class: 'field__label' }, tt('Valid until', 'যে তারিখ পর্যন্ত')), until),
+        button(tt('Print admit cards', 'প্রবেশ পত্র প্রিন্ট'), { kind: 'primary', icon: 'print', onClick: () => printContainer(area, { pageNumbers: false }) })),
+        h('div', { class: 'no-print rt-sentence' }, h('label', { class: 'field' }, h('span', { class: 'field__label' }, tt('Permission sentence ({date} is replaced by the date)', 'অনুমতির বাক্য ({date}-এর জায়গায় তারিখ বসবে)')), sentence),
+          h('p', { class: 'muted small' }, tt("Four cards per A4 page. The principal's signature comes from Settings → Institution.", 'প্রতি A4 পৃষ্ঠায় চারটি কার্ড। অধ্যক্ষের স্বাক্ষর আসে সেটিংস → প্রতিষ্ঠান থেকে।')), saveRow()),
+        area);
+      paint();
+    }
+
+    async function seatTab(panel) {
+      if (!st.columns.length) { panel.replaceChildren(emptyState({ message: tt('Add a class and examination to the routine first.', 'আগে সময়সূচিতে একটি শ্রেণি ও পরীক্ষা যোগ করুন।') })); return; }
+      const { ctx, r, printContainer } = await printing();
+      let colIdx = 0;
+      const area = h('div', { class: 'print-area' });
+      const FIELDS = [['institution', tt('College name', 'কলেজের নাম')], ['exam', tt('Examination', 'পরীক্ষা')], ['class', tt('Class', 'শ্রেণি')], ['group', tt('Group', 'বিভাগ')], ['session', tt('Session', 'শিক্ষাবর্ষ')], ['roll', tt('Class roll', 'শ্রেণি রোল')], ['name', tt('Student name', 'শিক্ষার্থীর নাম')], ['fourth', tt('4th subject', '৪র্থ বিষয়')]];
+      const paint = async () => {
+        const col = st.columns[colIdx];
+        const students = await studentsFor(col);
+        area.replaceChildren(...(students.length ? r.renderSeatCards(students, { ...colMeta(col), perPage: Number(st.seat.perPage), fields: FIELDS.map(([k]) => k).filter((k) => st.seat.fields.includes(k)) }, ctx) : [emptyState({ message: tt('No students found for this class and session.', 'এই শ্রেণি ও সেশনে কোনো শিক্ষার্থী পাওয়া যায়নি।') })]));
+      };
+      const per = h('select', { class: 'input input--compact', 'aria-label': tt('Cards per page', 'প্রতি পৃষ্ঠায় কার্ড'), onchange: (e) => { st.seat.perPage = Number(e.target.value); mark(); paint(); } },
+        [6, 9, 12, 15, 18].map((n) => h('option', { value: n, selected: Number(st.seat.perPage) === n }, tt('{n} per page', 'প্রতি পৃষ্ঠায় {n}টি', { n }))));
+      const checks = h('div', { class: 'check-row' }, FIELDS.map(([k, label]) => h('label', { class: 'check-chip' }, h('input', { type: 'checkbox', class: 'checkbox', checked: st.seat.fields.includes(k), onchange: (e) => {
+        st.seat.fields = e.target.checked ? [...st.seat.fields, k] : st.seat.fields.filter((x) => x !== k); mark(); paint(); } }), h('span', {}, label))));
+      panel.replaceChildren(h('div', { class: 'print-controls no-print' }, columnPicker((i) => { colIdx = i; paint(); }), per,
+        button(tt('Print seat cards', 'আসন কার্ড প্রিন্ট'), { kind: 'primary', icon: 'print', onClick: () => printContainer(area, { pageNumbers: false }) })),
+        h('div', { class: 'no-print' }, h('p', { class: 'field__label' }, tt('Show on each card', 'প্রতিটি কার্ডে দেখান')), checks, saveRow()), area);
+      paint();
+    }
+
     const tabCtl = tabs([
       { id: 'edit', label: tt('Edit routine', 'সময়সূচি সম্পাদনা'), render: () => editTab() },
       { id: 'print', label: tt('Printed routine', 'ছাপানো সময়সূচি'), render: (p) => printTab(p) },
       { id: 'attendance', label: tt('Attendance sheets', 'হাজিরা শীট'), render: (p) => attendanceTab(p) },
+      { id: 'duties', label: tt('Invigilators', 'কক্ষ প্রত্যবেক্ষক'), render: (p) => dutiesTab(p) },
+      { id: 'admit', label: tt('Admit cards', 'প্রবেশ পত্র'), render: (p) => admitTab(p) },
+      { id: 'seat', label: tt('Seat cards', 'আসন কার্ড'), render: (p) => seatTab(p) },
     ]);
     root.replaceChildren(pageHeader({ title: st.title || tt('Examination routine', 'পরীক্ষার সময়সূচি'), back: { href: '#/admin/routines', label: t('nav.routines') },
       actions: [button(tt('Delete', 'মুছুন'), { kind: 'danger-ghost', onClick: async () => {

@@ -125,6 +125,15 @@ async def main():
         first = await page.locator('.at-box').first.inner_text()
         check('attendance sheet is filled from the routine for students who sit the subject', '১০/১১/২০২৬' in first and 'পদার্থবিজ্ঞান' in first, first[:80])
 
+        await page.get_by_role('tab', name='Invigilators').click(); await page.wait_for_selector('.print-doc--duties', timeout=20000)
+        await page.locator('.rt-grid tbody tr').first.locator('select').first.select_option(index=1); await page.wait_for_timeout(400)
+        check('invigilator sheet lists the day, subject and chosen teacher', 'জনাব' in await page.inner_text('.print-doc--duties') and 'পদার্থবিজ্ঞান' in await page.inner_text('.print-doc--duties'))
+        await page.get_by_role('tab', name='Admit cards').click(); await page.wait_for_selector('.ac-card', timeout=20000)
+        check('admit cards: four per page with the permission date', await page.locator('.print-doc--admit').first.locator('.ac-card').count() == 4 and '১০/১১/২০২৬' in await page.locator('.ac-card').first.inner_text())
+        await page.get_by_role('tab', name='Seat cards').click(); await page.wait_for_selector('.sc-card', timeout=20000)
+        await page.locator('.print-controls select').nth(1).select_option('9'); await page.wait_for_timeout(500)
+        check('seat cards: chosen number per page', await page.locator('.sc-grid').first.locator('.sc-card').count() == 9)
+
         # Settings sections
         for sec, text in [('institution', 'Logo'), ('studentFields', 'Blood group'), ('grading', 'What these rules mean'), ('print', 'Bangla font'), ('publication', 'Extra check'), ('retention', 'public lookup'), ('features', 'JSON student import')]:
             await page.goto(f'{BASE}/#/settings?section={sec}'); await page.wait_for_timeout(1300)

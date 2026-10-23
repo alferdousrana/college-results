@@ -111,6 +111,13 @@ d('firestore.rules', () => {
     await assertSucceeds(deleteDoc(doc(as('admin'), 'examSessions/y__c__e/publications/v1')));
     await assertSucceeds(deleteDoc(doc(as('admin'), 'examSessions/y__c__e')));
   });
+  it('the mark-entry deadline closes teacher writes; the admin can still write', async () => {
+    const mark = (v) => ({ components: { cq: 40 }, absent: false, version: v, updatedBy: 't1', updatedAt: serverTimestamp() });
+    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'examSessions/y__c__e'), { markEntryDeadline: Timestamp.fromMillis(Date.now() + 3600000) }));
+    await assertSucceeds(setDoc(doc(as('t1'), 'examSessions/y__c__e/sessionSubjects/phy/marks/st1'), mark(1)));
+    await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'examSessions/y__c__e'), { markEntryDeadline: Timestamp.fromMillis(Date.now() - 1000) }));
+    await assertFails(setDoc(doc(as('t1'), 'examSessions/y__c__e/sessionSubjects/phy/marks/st1'), mark(2)));
+  });
   it('only the admin deletes teacher profiles, never their own or another admin', async () => {
     await assertFails(deleteDoc(doc(as('t1'), 'users/t2')));
     await assertFails(deleteDoc(doc(as('admin'), 'users/admin')));

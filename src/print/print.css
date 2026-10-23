@@ -119,3 +119,68 @@
 @media print { .border--thickThin::after, .border--dashed::after, .border--thickThin::before { inset: 0; } .border--thickThin::before { inset: calc(var(--print-border, 3pt) + 1.2mm); } .pr-frame { inset: 0; } }
 
 @media print { .ms-viewer .print-doc { zoom: 1 !important; } .ms-viewer { overflow: visible !important; padding: 0 !important; } }
+
+/* Routine */
+.print-doc--routine .rt-title { text-align: center; font-weight: 700; margin: 1mm 0 3mm !important; font-size: calc(var(--print-size, 10pt) + 2pt); }
+.rt-table { width: 100%; font-size: var(--print-table, 9pt); }
+.rt-table th { background: #f2f2f2 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.rt-table td { vertical-align: middle; }
+.rt-date { width: 26mm; }
+.rt-subject { padding: 0.6mm 0; }
+.rt-subject + .rt-subject { border-top: 0.5pt dotted #777; }
+.rt-empty { color: #888; }
+.rt-note { margin-top: 3mm !important; font-size: 8.5pt; }
+/* Attendance */
+.print-doc--attendance { padding: 8mm 9mm; }
+.at-page-head { position: relative; text-align: center; margin-bottom: 3mm; }
+.at-page-head .pr-inst { font-size: 14pt; }
+.at-page-head p { margin: 0 !important; }
+.at-group { position: absolute; right: 0; top: 0; border: 1.5pt solid #000; padding: 1.5mm 5mm; font-size: 14pt; font-weight: 700; }
+.at-pair { display: grid; grid-template-columns: 1fr 1fr; border: 1pt solid #000; }
+.at-box { padding: 2mm; } .at-box + .at-box { border-left: 1.5pt solid #000; }
+.at-head { display: grid; gap: 1mm; margin-bottom: 2mm; font-size: 9pt; }
+.at-head__row { display: flex; justify-content: space-between; }
+.at-table { width: 100%; font-size: 8pt; }
+.at-table td { height: 6.5mm; padding: 0 2pt !important; }
+.at-table th:nth-child(1), .at-table td:nth-child(1) { width: 21%; }
+.at-table th:nth-child(2), .at-table td:nth-child(2) { width: 33%; }
+.at-slot { font-size: 6.5pt; }
+
+/* Invigilator duty sheet */
+.dt-table td { vertical-align: top; text-align: left; }
+.dt-table td.rt-date { text-align: center; vertical-align: middle; }
+.dt-subjects div { padding: 0.4mm 0; }
+.dt-people { width: 30%; } .dt-staff { margin-top: 3mm; padding-left: 8mm; }
+.dt-sign { width: 18%; } .dt-sign__box { height: 5.5mm; border: 0.75pt solid #000; margin: 0.6mm 0; }
+.dt-committee { margin-top: 6mm; }
+.dt-committee__title { text-align: center; font-weight: 700; font-size: 14pt; margin: 0 !important; }
+.dt-committee ol { border: 1pt dashed #555; padding: 3mm 3mm 3mm 10mm; margin: 3mm 0 0; font-size: 12pt; }
+.dt-committee li { margin: 1.5mm 0; }
+/* Admit cards: 2 × 2 on A4 portrait */
+.print-doc--cards { padding: 0 !important; min-height: 0; background: #fff; }
+.ac-grid { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; gap: 6mm; height: 279mm; }
+.ac-card { border: 3pt double #000; padding: 2mm; break-inside: avoid; }
+.ac-inner { border: 0.75pt solid #000; height: 100%; padding: 3mm 4mm; display: flex; flex-direction: column; gap: 1.2mm; box-sizing: border-box; }
+.ac-inst { text-align: center; font-weight: 700; font-size: 12.5pt; margin: 0 !important; }
+.ac-addr, .ac-exam { text-align: center; margin: 0 !important; font-size: 9.5pt; }
+.ac-title { text-align: center; font-weight: 700; font-size: 13pt; text-decoration: underline; margin: 1mm 0 !important; }
+.ac-row { display: flex; justify-content: space-between; gap: 2mm; font-size: 9.5pt; flex-wrap: wrap; }
+.ac-text { font-size: 9.5pt; margin-top: 1mm !important; }
+.ac-sign { margin-top: auto; align-self: flex-end; display: flex; flex-direction: column; align-items: center; font-size: 9.5pt; }
+.ac-sign img { max-height: 11mm; max-width: 32mm; } .ac-sign__space { height: 11mm; }
+/* Seat plan cards */
+.sc-grid { display: grid; gap: 3mm; height: 283mm; }
+.sc-card { border: 1.2pt solid #000; border-radius: 2mm; padding: 2mm; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; gap: 0.8mm; break-inside: avoid; font-size: 10pt; }
+.sc-card p { margin: 0 !important; }
+.sc-inst { font-weight: 700; font-size: 9pt; } .sc-exam { font-size: 9pt; }
+.sc-roll { font-size: 15pt; } .sc-roll strong { font-size: 20pt; }
+.sc-name { font-weight: 700; font-size: 11pt; }
+@media print { .ac-grid { height: calc(297mm - 16mm - 2mm); } .sc-grid { height: calc(297mm - 12mm - 2mm); } }
+
+/* Admit cards on A4 landscape (2 × 2, cards wider than tall) */
+.print-doc--admit .ac-grid { height: 190mm; gap: 8mm; }
+.print-doc--admit .ac-inner { justify-content: space-between; padding: 4mm 6mm; }
+.print-doc--admit .ac-inst { font-size: 15pt; } .print-doc--admit .ac-title { font-size: 15pt; }
+.print-doc--admit .ac-row, .print-doc--admit .ac-text, .print-doc--admit .ac-addr, .print-doc--admit .ac-exam { font-size: 11pt; }
+.dt-committee ol { list-style: none; padding-left: 4mm; }
+@media print { .print-doc--admit .ac-grid { height: calc(210mm - 16mm - 2mm); } }

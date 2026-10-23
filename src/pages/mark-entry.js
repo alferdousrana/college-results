@@ -20,6 +20,7 @@ import { enqueueMark, listQueue, resolveConflict, markKey, QueueStatus } from '.
 import { syncNow } from '../offline/sync-manager.js';
 import { debounce, fmtNum } from '../ui/format.js';
 import { isEnabled } from '../features/flags.js';
+import { isPastDeadline, deadlineMs } from '../domain/deadline.js';
 
 export const title = 'nav.markEntry';
 let cleanup = [];
@@ -53,7 +54,7 @@ async function init(sid, subjectId, root) {
   const state = bundle.session.state;
   const submitted = subject.submission?.state === 'submitted';
   const editable = isAdminUser ? [ExamState.READY, ExamState.IN_PROGRESS, ExamState.SUBMITTED, ExamState.UNDER_REVIEW].includes(state)
-    : [ExamState.READY, ExamState.IN_PROGRESS].includes(state) && !submitted;
+    : [ExamState.READY, ExamState.IN_PROGRESS].includes(state) && !submitted && !isPastDeadline(bundle.session);
   const students = studentsForSubject(bundle, subjectId);
   const server = await listMarks(sid, subjectId);
   const queued = (await listQueue(me.id)).filter((e) => e.path.sessionId === sid && e.path.subjectId === subjectId);
@@ -267,6 +268,7 @@ async function init(sid, subjectId, root) {
   const saveBtn = button(tt('Save now', 'এখনই সংরক্ষণ'), { onClick: async () => { for (const [id, tm] of timers) { clearTimeout(tm); await commit(rows.find((r) => r.e.id === id)); } await flush(); } });
 
   const notices = [
+    !isAdminUser && isPastDeadline(bundle.session) && !submitted ? h('p', { class: 'notice notice--bad' }, tt('The mark-entry deadline ({d}) has passed. Ask the administrator if a mark is still missing.', 'নম্বর দেওয়ার শেষ সময় ({d}) পার হয়ে গেছে। কোনো নম্বর বাকি থাকলে প্রশাসকের সাথে যোগাযোগ করুন।', { d: new Date(deadlineMs(bundle.session)).toLocaleString() })) :
     !editable ? h('p', { class: 'notice' }, submitted ? tt('This subject has been submitted. Ask the administrator to reopen it if a mark must change.', 'বিষয়টি জমা হয়েছে। নম্বর বদলাতে প্রশাসককে আবার খুলতে বলুন।') : tt('Mark entry is closed for this examination.', 'এই পরীক্ষার নম্বর প্রদান বন্ধ।')) : null,
     restored ? h('p', { class: 'notice notice--locked' }, tt('{n} unsent change(s) from this device were restored and will be sent automatically.', 'এই ডিভাইসের {n}টি না-পাঠানো পরিবর্তন ফিরিয়ে আনা হয়েছে এবং স্বয়ংক্রিয়ভাবে পাঠানো হবে।', { n: restored })) : null,
     isAdminUser && [ExamState.SUBMITTED, ExamState.UNDER_REVIEW].includes(state) ? h('p', { class: 'notice notice--locked' }, tt('You are changing marks after mark entry closed. Every change is recorded in the audit log.', 'নম্বর প্রদান বন্ধ হওয়ার পর আপনি নম্বর বদলাচ্ছেন। প্রতিটি পরিবর্তন অডিট লগে থাকবে।')) : null,

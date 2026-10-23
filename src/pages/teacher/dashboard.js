@@ -7,6 +7,11 @@ import { pageHeader } from '../../ui/components/page.js';
 import { ExamState } from '../../domain/exam-lifecycle.js';
 import { subjectDefinition, subjectProgress } from '../../domain/session-calc.js';
 import { fmtNum } from '../../ui/format.js';
+import { greeting, countdown, deadlineMs } from '../../domain/deadline.js';
+import { formatNumber, currentLang } from '../../i18n/index.js';
+
+let timer = null;
+export function dispose() { clearInterval(timer); timer = null; }
 
 export const title = 'dash.teacherTitle';
 
@@ -32,6 +37,10 @@ export function render() {
       for (const sub of mine) progress.push({ sub, p: subjectProgress(bundle, { [sub.id]: await listMarks(s.id, sub.id) }, sub.id) });
       cards.push({ s, progress });
     }
+    // The soonest deadline among examinations where this teacher still has an unsubmitted subject.
+    const pending = cards.filter(({ s, progress }) => [ExamState.READY, ExamState.IN_PROGRESS].includes(s.state) && progress.some(({ sub }) => sub.submission?.state !== 'submitted'))
+      .map(({ s }) => ({ s, ms: deadlineMs(s) })).filter((x) => x.ms && x.ms > Date.now()).sort((a, b) => a.ms - b.ms);
+    paintTimer(pending[0] ?? null);
     return { cards, open, waiting, published, assignments: await listAssignments({ teacherId: uid }), cats: await loadAllCatalogues() };
   }, ({ cards, open, waiting, published, assignments, cats }) => {
     // Subjects: one tile per subject, listing the classes it is assigned for.
@@ -73,5 +82,26 @@ export function render() {
           h('strong', {}, L(s.title)), h('a', { class: 'btn btn--ghost btn--sm', href: `#/results?sid=${encodeURIComponent(s.id)}` }, tt('View results', 'ফলাফল দেখুন'))))))] : null,
       h('p', {}, h('a', { class: 'btn btn--ghost btn--sm', href: '#/teacher/history' }, tt('All past examinations', 'সব পূর্ববর্তী পরীক্ষা'))));
   }, { errorMessage: t('dash.loadFailed') });
-  return h('section', { class: 'page' }, pageHeader({ title: tt('Welcome, {n}', 'স্বাগতম, {n}', { n: profile?.displayName ?? '' }), subtitle: t('dash.teacherTitle') }), body);
+  const g = greeting();
+  const timerBox = h('div', { class: 'deadline-timer', hidden: true, role: 'timer', 'aria-live': 'off' });
+  function paintTimer(next) {
+    clearInterval(timer);
+    if (!next) { timerBox.hidden = true; return; }
+    timerBox.hidden = false;
+    const unit = (n, en, bn) => h('div', { class: 'deadline-timer__unit' }, h('span', { class: 'deadline-timer__num' }, formatNumber(String(n).padStart(2, '0'))), h('span', { class: 'deadline-timer__label' }, currentLang() === 'bn' ? bn : en));
+    const tick = () => {
+      const c = countdown(next.ms);
+      if (c.total <= 0) { clearInterval(timer); timerBox.replaceChildren(h('p', { class: 'deadline-timer__title' }, tt('Mark entry has closed for "{x}".', '"{x}"-এর নম্বর দেওয়া বন্ধ হয়েছে।', { x: L(next.s.title) }))); return; }
+      timerBox.classList.toggle('is-urgent', c.total < 86400000);
+      timerBox.replaceChildren(
+        h('p', { class: 'deadline-timer__title' }, tt('Time left to enter marks', 'নম্বর দেওয়ার বাকি সময়')),
+        h('div', { class: 'deadline-timer__units' }, unit(c.days, 'days', 'দিন'), unit(c.hours, 'hours', 'ঘণ্টা'), unit(c.minutes, 'min', 'মিনিট'), unit(c.seconds, 'sec', 'সেকেন্ড')),
+        h('p', { class: 'deadline-timer__sub' }, `${L(next.s.title)} · ${tt('until', 'শেষ')} ${new Date(next.ms).toLocaleString(currentLang() === 'bn' ? 'bn-BD' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' })}`));
+    };
+    tick(); timer = setInterval(tick, 1000);
+  }
+  const head = h('header', { class: 'teacher-head' },
+    h('div', { class: 'teacher-head__greet' }, h('p', { class: 'teacher-head__hello' }, L(g)), h('h1', {}, profile?.displayName ?? ''), h('p', { class: 'muted' }, t('dash.teacherTitle'))),
+    timerBox);
+  return h('section', { class: 'page' }, head, body);
 }

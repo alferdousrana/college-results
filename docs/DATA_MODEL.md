@@ -96,3 +96,9 @@ Publishing stores a calculation snapshot (`domain/calculation/snapshot.js`) — 
 * `settings/print.page { color, watermark, watermarkOpacity, centerContent }`, `sheet.showSerial`, `sheet.showCodes`, `marksheetFields.subjectCode`.
 * `examSessions/{id}.publicIds`: current public result ids (also kept per publication), used by "Update public lookup".
 * Dashboard and student totals use server-side count queries (1 read per 1,000 documents).
+
+* `routines/{id}`: `title`, `note`, `columns [{ sessionId, label }]`, `slots [{ id, label }]`, `days [{ id, date, cells { 'slotId|sessionId': [subjectId] } }]` — admin writes, active staff read. Attendance sheets are generated from a routine + the result sheet's enrollments (no extra data).
+* Subjects: `papers { first, second }` and `paperScheme { classId: combined|first|second }`; the resolved name/code is frozen into each new result sheet.
+
+* `examSessions/{id}.markEntryDeadline` (timestamp): rules allow teachers' mark writes only while `request.time` is before it.
+* `routines/{id}`: also `duties { dayId: { teacherIds, staffIds } }`, `committee [{ name, designation }]`, `dutyPrefix`, `admit { validUntil, sentence }`, `seat { perPage, fields }`.

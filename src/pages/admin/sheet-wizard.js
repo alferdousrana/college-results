@@ -21,6 +21,15 @@ export const title = 'dash.createSheet';
 const STEPS = () => [tt('Examination', 'পরীক্ষা'), tt('Subjects', 'বিষয়'), tt('Teachers', 'শিক্ষক'), tt('Students', 'শিক্ষার্থী'), tt('Review', 'যাচাই')];
 let unloadGuard = null;
 
+/** ms/ISO → value for <input type=datetime-local>. */
+function toLocalInput(v) {
+  if (!v) return '';
+  const ms = typeof v === 'number' ? v : Date.parse(v);
+  if (Number.isNaN(ms)) return '';
+  const d = new Date(ms); const p = (n) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+}
+
 export function dispose() { if (unloadGuard) window.removeEventListener('beforeunload', unloadGuard); unloadGuard = null; }
 
 export function render({ query }) {
@@ -45,7 +54,7 @@ async function init(sid, body) {
     const b = await sessions.loadSessionBundle(sid);
     if (b.session.state !== ExamState.DRAFT) { navigate(`/admin/sheet?sid=${encodeURIComponent(sid)}`, { replace: true }); return; }
     const s = b.session;
-    Object.assign(st.details, { yearId: s.yearId, classId: s.classId, examDefId: s.examDefId, titleEn: s.title?.en ?? '', titleBn: s.title?.bn ?? '', heldOn: s.heldOn ?? '', startDate: s.startDate ?? '', endDate: s.endDate ?? '', notes: s.notes ?? '' });
+    Object.assign(st.details, { yearId: s.yearId, classId: s.classId, examDefId: s.examDefId, titleEn: s.title?.en ?? '', titleBn: s.title?.bn ?? '', heldOn: s.heldOn ?? '', startDate: s.startDate ?? '', endDate: s.endDate ?? '', notes: s.notes ?? '', markEntryDeadline: toLocalInput(s.markEntryDeadline) });
     st.groupIds = b.sheets.map((x) => x.id);
     b.sheets.forEach((x) => {
       st.groupSubjects[x.id] = [...(x.subjectIds ?? [])];
@@ -109,6 +118,7 @@ async function init(sid, body) {
     const start = field({ label: tt('First exam day', 'পরীক্ষা শুরুর দিন'), name: 'start', type: 'date', value: d.startDate });
     const end = field({ label: tt('Last exam day', 'পরীক্ষা শেষের দিন'), name: 'end', type: 'date', value: d.endDate });
     const notes = field({ label: tt('Internal notes', 'অভ্যন্তরীণ নোট'), name: 'notes', type: 'textarea', value: d.notes });
+    const deadline = field({ label: tt('Teachers can enter marks until', 'শিক্ষকরা নম্বর দিতে পারবেন যতক্ষণ'), name: 'deadline', type: 'datetime-local', value: d.markEntryDeadline ?? '', hint: tt('After this date and time mark entry closes automatically for teachers. You can change it later on the sheet page.', 'এই তারিখ ও সময়ের পর শিক্ষকদের নম্বর দেওয়া নিজে থেকে বন্ধ হবে। পরে শিট পৃষ্ঠা থেকে বদলানো যাবে।') });
     const groupsBox = h('div');
     const paintGroups = () => {
       const c = cats.classes.find((x) => x.id === klass.input.value);
@@ -121,7 +131,7 @@ async function init(sid, body) {
       const e = cats.examDefs.find((x) => x.id === exam.input.value); const y = cats.years.find((x) => x.id === year.input.value);
       if (e && y) { if (!d.titleEn || d.autoTitle) { titleEn.input.value = `${L(e.name, 'en')} ${y.label}`; titleBn.input.value = `${L(e.name, 'bn')} ${y.label.replace(/\d/g, (x) => '০১২৩৪৫৬৭৮৯'[x])}`; d.autoTitle = true; } }
     };
-    const sync = () => { Object.assign(d, { yearId: year.input.value, classId: klass.input.value, examDefId: exam.input.value, titleEn: titleEn.value, titleBn: titleBn.value, heldOn: heldOn.value, startDate: start.value, endDate: end.value, notes: notes.value }); markDirty(); };
+    const sync = () => { Object.assign(d, { yearId: year.input.value, classId: klass.input.value, examDefId: exam.input.value, titleEn: titleEn.value, titleBn: titleBn.value, heldOn: heldOn.value, startDate: start.value, endDate: end.value, notes: notes.value, markEntryDeadline: deadline.value }); markDirty(); };
     const locked = Boolean(st.sid);
     // First and last exam day come from the examination routine when one exists.
     const routineNote = h('p', { class: 'muted small span-all', hidden: true });
@@ -133,6 +143,8 @@ async function init(sid, body) {
         if (!range) { routineNote.hidden = true; return; }
         if (!start.input.value) start.input.value = range.first;
         if (!end.input.value) end.input.value = range.last;
+        // Suggest a mark-entry deadline one week after the last exam (23:59).
+        if (!deadline.input.value) { const dd = new Date(`${range.last}T23:59:00`); dd.setDate(dd.getDate() + 7); const p = (n) => String(n).padStart(2, '0'); deadline.input.value = `${dd.getFullYear()}-${p(dd.getMonth() + 1)}-${p(dd.getDate())}T23:59`; }
         sync();
         routineNote.textContent = tt('Dates from the examination routine: {a} – {b}.', 'পরীক্ষার সময়সূচি থেকে তারিখ: {a} – {b}।', { a: range.first, b: range.last });
         routineNote.hidden = false;
@@ -141,10 +153,10 @@ async function init(sid, body) {
     [year, klass, exam].forEach((f) => { f.input.disabled = locked; f.input.addEventListener('change', () => { autoTitle(); sync(); if (f === klass) { st.groupIds = []; paintGroups(); } fillFromRoutine(); }); });
     fillFromRoutine();
     [titleEn, titleBn].forEach((f) => f.input.addEventListener('input', () => { d.autoTitle = false; sync(); }));
-    [heldOn, start, end, notes].forEach((f) => f.input.addEventListener('input', sync));
+    [heldOn, start, end, notes, deadline].forEach((f) => f.input.addEventListener('input', sync));
     paintGroups();
     return h('div', { class: 'form-grid' }, year.el, klass.el, exam.el, locked ? h('p', { class: 'muted span-all' }, tt('Year, class and examination cannot change after the draft is created.', 'খসড়া তৈরির পর বছর, শ্রেণি ও পরীক্ষা বদলানো যায় না।')) : null,
-      titleEn.el, titleBn.el, heldOn.el, start.el, end.el, routineNote, h('div', { class: 'span-all' }, groupsBox), h('div', { class: 'span-all' }, notes.el));
+      titleEn.el, titleBn.el, heldOn.el, start.el, end.el, deadline.el, routineNote, h('div', { class: 'span-all' }, groupsBox), h('div', { class: 'span-all' }, notes.el));
   }
 
   function compSummary(s) {
@@ -315,6 +327,7 @@ async function init(sid, body) {
       yearId: d.yearId, classId: d.classId, examDefId: d.examDefId,
       title: { en: d.titleEn || `${nameOf(cats.examDefs, d.examDefId)} ${d.yearId}`, bn: d.titleBn || null },
       heldOn: d.heldOn || null, startDate: d.startDate || null, endDate: d.endDate || null, notes: d.notes || null,
+      markEntryDeadline: d.markEntryDeadline ? new Date(d.markEntryDeadline) : null,
       groups: st.groupIds.map((g) => {
         const ids = (st.groupSubjects[g] ?? []).filter((x) => subjectsFor(g).some((s) => s.id === x));
         return { groupId: g, subjectIds: ids, subjectRoles: Object.fromEntries(ids.map((id) => [id, st.groupRoles[g]?.[id] ?? 'compulsory'])),

@@ -294,3 +294,19 @@ progress { accent-color: var(--c-brand); width: 100px; height: 8px; vertical-ali
 .rt-checks { margin: var(--space-3) 0; padding-left: var(--space-5); }
 @media (max-width: 640px) { .rt-column-pick { grid-template-columns: 1fr; } }
 .rt-col-chip { gap: var(--space-2); } .rt-col-chip .input { width: 260px; }
+
+/* Teacher greeting + deadline countdown */
+.teacher-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-start; gap: var(--space-4); margin-bottom: var(--space-5); }
+.teacher-head__hello { margin: 0; font-weight: 600; color: var(--c-brand); font-size: var(--step-1); }
+.teacher-head h1 { margin: 0; }
+.deadline-timer { background: var(--c-surface); border: 2px solid var(--c-brand); border-radius: var(--radius-m); padding: var(--space-3) var(--space-4); text-align: center; min-width: 300px; box-shadow: 0 6px 18px rgba(0,0,0,.08); }
+.deadline-timer.is-urgent { border-color: var(--c-bad); }
+.deadline-timer__title { margin: 0 0 var(--space-2); font-weight: 700; }
+.deadline-timer__units { display: flex; justify-content: center; gap: var(--space-3); }
+.deadline-timer__unit { display: flex; flex-direction: column; min-width: 56px; }
+.deadline-timer__num { font-size: 2.2rem; font-weight: 700; line-height: 1; font-variant-numeric: tabular-nums; color: var(--c-brand); }
+.deadline-timer.is-urgent .deadline-timer__num { color: var(--c-bad); }
+.deadline-timer__label { font-size: var(--step--1); color: var(--c-ink-2); }
+.deadline-timer__sub { margin: var(--space-2) 0 0; font-size: var(--step--1); color: var(--c-ink-2); }
+@media (max-width: 600px) { .deadline-timer { width: 100%; min-width: 0; } .deadline-timer__num { font-size: 1.7rem; } }
+.rt-sentence { max-width: 760px; margin-bottom: var(--space-3); }

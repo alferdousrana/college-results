@@ -26,6 +26,10 @@ Change the language (English / বাংলা), light or dark appearance, table
 
 **Examination routine and attendance sheets.** **Exam routine → New routine** (this can be done before any result sheet exists): add one column per class and examination (e.g. Class Twelve Test and Class Eleven Quarterly), set the exam times, then add each date and the subjects held that day. The page warns about subjects not yet in the routine. **Printed routine** prints it in Bangla (date, weekday, subject and code). **Attendance sheets** prints every student's হাজিরা শীট — two per page, group by group — with their own dates and subjects (including the 4th subject) filled in from the routine and the students' records. When you later create the result sheet, its first and last exam day are taken from the routine.
 
+From the same routine you can also print: the **invigilator duty sheet** (pick the teachers and one or two staff for each day; the committee list is printed at the end), **admit cards** (four per A4 page, valid until the last exam day unless you change it) and **seat cards** (choose how many per page and which details to show).
+
+**Mark-entry deadline.** When creating a result sheet (or later with **Mark-entry deadline** on the sheet page) set the date and time until which teachers can enter marks. Afterwards the database refuses teachers' changes automatically; you can still correct marks. Teachers see a countdown on their home page.
+
 **Deleting.** Drafts can be deleted. A finished or test result sheet can be deleted with **Delete sheet**, a reason and typing DELETE. Students, subjects, teachers and class items can be deleted only while nothing uses them; otherwise mark them inactive or disable them, so old results stay complete.
 
 **History.** **Result archive** finds published results by year, class, examination, group, roll or name. **Audit log** shows who changed what and when.
