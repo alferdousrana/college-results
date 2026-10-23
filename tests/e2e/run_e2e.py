@@ -105,6 +105,26 @@ async def main():
         check('share confirmation lists subjects, teachers and student count', 'Physics' in dlg and 'Kamal Hossain' in dlg and 'students' in dlg)
         await page.locator('dialog[open]').get_by_role('button', name='Share with all teachers').click(); await page.wait_for_timeout(1500)
         check('sharing moves the sheet to Ready for mark entry', 'Ready for mark entry' in await page.inner_text('main'))
+        # Examination routine → printed routine and attendance sheets
+        await page.goto(f'{BASE}/#/admin/routines'); await page.wait_for_timeout(1000)
+        await page.get_by_role('button', name='New routine').click(); await page.wait_for_selector('input[name=rtt]', timeout=20000)
+        await page.fill('input[name=rtt]', 'বার্ষিক পরীক্ষা-২০২৬')
+        cols = page.locator('.rt-columns .row-actions select')
+        await cols.nth(0).select_option('2026'); await cols.nth(1).select_option('class-9'); await cols.nth(2).select_option('annual')
+        await page.get_by_role('button', name='Add column').click(); await page.wait_for_timeout(600)
+        check('routine column can be added before its result sheet exists', 'no result sheet yet' in await page.locator('.rt-columns').inner_text())
+        await page.locator('.rt-col-chip .chip__x').first.click(); await page.wait_for_timeout(300)
+        await cols.nth(0).select_option('2026'); await cols.nth(1).select_option('class-11'); await cols.nth(2).select_option('annual')
+        await page.get_by_role('button', name='Add column').click(); await page.wait_for_timeout(800)
+        await page.get_by_role('button', name='Add date').click(); await page.locator('.rt-grid tbody tr').first.locator('input[type=date]').fill('2026-11-10')
+        await page.locator('.rt-grid tbody tr').first.locator('select').first.select_option(label='পদার্থবিজ্ঞান - ১৭৪')
+        await page.get_by_role('button', name='Save changes').click(); await page.wait_for_timeout(1200)
+        await page.get_by_role('tab', name='Printed routine').click(); await page.wait_for_selector('.rt-table', timeout=20000)
+        check('routine prints in Bangla with date, weekday and subject code', 'মঙ্গলবার' in await page.inner_text('.rt-table') and '১৭৪' in await page.inner_text('.rt-table'))
+        await page.get_by_role('tab', name='Attendance sheets').click(); await page.wait_for_selector('.at-box', timeout=20000); await page.wait_for_timeout(800)
+        first = await page.locator('.at-box').first.inner_text()
+        check('attendance sheet is filled from the routine for students who sit the subject', '১০/১১/২০২৬' in first and 'পদার্থবিজ্ঞান' in first, first[:80])
+
         # Settings sections
         for sec, text in [('institution', 'Logo'), ('studentFields', 'Blood group'), ('grading', 'What these rules mean'), ('print', 'Bangla font'), ('publication', 'Extra check'), ('retention', 'public lookup'), ('features', 'JSON student import')]:
             await page.goto(f'{BASE}/#/settings?section={sec}'); await page.wait_for_timeout(1300)

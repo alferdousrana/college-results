@@ -78,3 +78,28 @@ describe('paper schemes', () => {
     expect(subjectLabelForClass({ name: { en: 'ICT' }, code: '275' }, 'class-12')).toMatchObject({ name: { en: 'ICT' }, code: '275', scheme: null });
   });
 });
+
+import { bnDate, attendanceRows, scheduleCheck, cellKey } from '../../src/domain/routine.js';
+describe('routine and attendance', () => {
+  const routine = { slots: [{ id: 'am', label: 'সকাল ১০টা' }, { id: 'pm', label: 'বিকাল ১.৩০টা' }],
+    days: [{ date: '2024-02-12', cells: { [cellKey('am', 'S')]: ['b2'] } }, { date: '2024-02-08', cells: { [cellKey('am', 'S')]: ['b1'], [cellKey('pm', 'S')]: ['ict'] } },
+      { date: '2024-02-20', cells: { [cellKey('am', 'S')]: ['phy', 'acc'], [cellKey('am', 'T')]: ['phy'] } }] };
+  it('formats Bangla dates and weekdays', () => expect(bnDate('2024-02-08')).toEqual({ date: '০৮/০২/২০২৪', day: 'বৃহস্পতিবার' }));
+  it('builds a student\'s attendance rows from the routine, only for subjects they sit', () => {
+    const rows = attendanceRows(routine, 'S', ['b1', 'b2', 'ict', 'phy']);
+    expect(rows.map((r) => `${r.date}:${r.subjectId}`)).toEqual(['2024-02-08:b1', '2024-02-08:ict', '2024-02-12:b2', '2024-02-20:phy']);
+  });
+  it('reports unscheduled and repeated subjects', () => {
+    expect(scheduleCheck(routine, 'S', ['b1', 'b2', 'ict', 'phy', 'acc', 'eco'])).toEqual({ missing: ['eco'], repeated: [] });
+  });
+});
+
+import { examDateRange } from '../../src/domain/routine.js';
+describe('dates from the routine', () => {
+  it('gives the first and last exam day of one class and examination', () => {
+    const r = [{ days: [{ date: '2024-02-20', cells: { 'am|A': ['x'] } }, { date: '2024-02-08', cells: { 'am|A': ['y'], 'pm|B': ['z'] } }, { date: '2024-03-05', cells: { 'pm|B': ['z'] } }] }];
+    expect(examDateRange(r, 'A')).toEqual({ first: '2024-02-08', last: '2024-02-20' });
+    expect(examDateRange(r, 'B')).toEqual({ first: '2024-02-08', last: '2024-03-05' });
+    expect(examDateRange(r, 'C')).toBeNull();
+  });
+});

@@ -123,12 +123,28 @@ async function init(sid, body) {
     };
     const sync = () => { Object.assign(d, { yearId: year.input.value, classId: klass.input.value, examDefId: exam.input.value, titleEn: titleEn.value, titleBn: titleBn.value, heldOn: heldOn.value, startDate: start.value, endDate: end.value, notes: notes.value }); markDirty(); };
     const locked = Boolean(st.sid);
-    [year, klass, exam].forEach((f) => { f.input.disabled = locked; f.input.addEventListener('change', () => { autoTitle(); sync(); if (f === klass) { st.groupIds = []; paintGroups(); } }); });
+    // First and last exam day come from the examination routine when one exists.
+    const routineNote = h('p', { class: 'muted small span-all', hidden: true });
+    const fillFromRoutine = async () => {
+      if (!year.input.value || !klass.input.value || !exam.input.value) return;
+      try {
+        const [{ listRoutines }, { examDateRange }, { ids }] = await Promise.all([import('../../data/repositories/routine-repository.js'), import('../../domain/routine.js'), import('../../data/paths.js')]);
+        const range = examDateRange(await listRoutines(), ids.session(year.input.value, klass.input.value, exam.input.value));
+        if (!range) { routineNote.hidden = true; return; }
+        if (!start.input.value) start.input.value = range.first;
+        if (!end.input.value) end.input.value = range.last;
+        sync();
+        routineNote.textContent = tt('Dates from the examination routine: {a} – {b}.', 'পরীক্ষার সময়সূচি থেকে তারিখ: {a} – {b}।', { a: range.first, b: range.last });
+        routineNote.hidden = false;
+      } catch { /* no routine available */ }
+    };
+    [year, klass, exam].forEach((f) => { f.input.disabled = locked; f.input.addEventListener('change', () => { autoTitle(); sync(); if (f === klass) { st.groupIds = []; paintGroups(); } fillFromRoutine(); }); });
+    fillFromRoutine();
     [titleEn, titleBn].forEach((f) => f.input.addEventListener('input', () => { d.autoTitle = false; sync(); }));
     [heldOn, start, end, notes].forEach((f) => f.input.addEventListener('input', sync));
     paintGroups();
     return h('div', { class: 'form-grid' }, year.el, klass.el, exam.el, locked ? h('p', { class: 'muted span-all' }, tt('Year, class and examination cannot change after the draft is created.', 'খসড়া তৈরির পর বছর, শ্রেণি ও পরীক্ষা বদলানো যায় না।')) : null,
-      titleEn.el, titleBn.el, heldOn.el, start.el, end.el, h('div', { class: 'span-all' }, groupsBox), h('div', { class: 'span-all' }, notes.el));
+      titleEn.el, titleBn.el, heldOn.el, start.el, end.el, routineNote, h('div', { class: 'span-all' }, groupsBox), h('div', { class: 'span-all' }, notes.el));
   }
 
   function compSummary(s) {

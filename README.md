@@ -24,6 +24,8 @@ Change the language (English / বাংলা), light or dark appearance, table
 
 **Printing.** **Print** on a result sheet opens the full result sheet for each group (grade points and GPA, always fitted to the page width on A4 or Legal) and individual marksheets with every mark, in English or Bangla. Choose **Save as PDF** in the print window to keep a PDF. **Settings → Print design** controls fonts, sizes, borders, logo and signature positions, margins and which details appear.
 
+**Examination routine and attendance sheets.** **Exam routine → New routine** (this can be done before any result sheet exists): add one column per class and examination (e.g. Class Twelve Test and Class Eleven Quarterly), set the exam times, then add each date and the subjects held that day. The page warns about subjects not yet in the routine. **Printed routine** prints it in Bangla (date, weekday, subject and code). **Attendance sheets** prints every student's হাজিরা শীট — two per page, group by group — with their own dates and subjects (including the 4th subject) filled in from the routine and the students' records. When you later create the result sheet, its first and last exam day are taken from the routine.
+
 **Deleting.** Drafts can be deleted. A finished or test result sheet can be deleted with **Delete sheet**, a reason and typing DELETE. Students, subjects, teachers and class items can be deleted only while nothing uses them; otherwise mark them inactive or disable them, so old results stay complete.
 
 **History.** **Result archive** finds published results by year, class, examination, group, roll or name. **Audit log** shows who changed what and when.
