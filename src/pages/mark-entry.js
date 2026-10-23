@@ -268,6 +268,7 @@ async function init(sid, subjectId, root) {
       back: { href: isAdminUser ? `#/admin/sheet?sid=${encodeURIComponent(sid)}` : `#/teacher/exam?sid=${encodeURIComponent(sid)}`, label: tt('Back to examination', 'পরীক্ষায় ফিরে যান') },
       actions: editable ? [saveBtn, isAdminUser ? null : submitBtn].filter(Boolean) : [] }),
     ...notices.filter(Boolean),
+    editable ? markHelp(def, isAdminUser) : null,
     h('div', { class: 'marks-toolbar' }, saveStatus, h('p', { class: 'muted small' }, tt('Type a number, or AB for absent in one part. Leave empty if not available yet. Enter or ↓ moves down.', 'সংখ্যা লিখুন, কোনো অংশে অনুপস্থিত হলে AB লিখুন। এখনো না পেলে খালি রাখুন। Enter বা ↓ চাপলে নিচে যায়।'))),
     missingBox,
     h('div', { class: 'table-scroll marks-scroll' }, table));
@@ -290,4 +291,27 @@ async function init(sid, subjectId, root) {
   cleanup.push(offNet, offSync, () => clearInterval(retry), () => document.removeEventListener('visibilitychange', onHide), () => window.removeEventListener('beforeunload', beforeUnload),
     () => { for (const [id, tm] of timers) { clearTimeout(tm); commit(rows.find((r) => r.e.id === id)); } });
   if (!getState().online) paintSaveStatus();
+}
+
+/** Step-by-step instructions, shown open the first time and remembered when closed. */
+function markHelp(def, isAdminUser) {
+  const KEY = 'crms.markHelp.closed';
+  const parts = def.components.map((c) => `${c.label} (${tt('out of', 'মোট')} ${c.maxMarks}${c.passMarks != null ? `, ${tt('pass', 'পাস')} ${c.passMarks}` : ''})`).join(', ');
+  const steps = [
+    tt('Each row is one student. Type the marks for each part: {p}.', 'প্রতিটি সারি একজন শিক্ষার্থী। প্রতিটি অংশের নম্বর লিখুন: {p}।', { p: parts }),
+    tt('Press Enter or ↓ to go to the next student in the same column, ↑ to go back. Tab moves to the next part.', 'Enter বা ↓ চাপলে একই কলামে পরের শিক্ষার্থীতে যাবে, ↑ চাপলে আগেরটিতে। Tab চাপলে পরের অংশে যাবে।'),
+    tt('Marks are saved automatically about one second after you stop typing. Watch the status above the table: "All changes saved" means the marks are on the server. You can also press "Save now".', 'লেখা থামানোর প্রায় এক সেকেন্ড পর নম্বর নিজে থেকেই সংরক্ষিত হয়। টেবিলের উপরের অবস্থা দেখুন: "সব পরিবর্তন সংরক্ষিত" মানে নম্বর সার্ভারে পৌঁছেছে। চাইলে "এখনই সংরক্ষণ" চাপতে পারেন।'),
+    tt('Student absent for the whole subject: tick "Absent". Absent in only one part: type AB in that box. Absent is not the same as 0.', 'পুরো বিষয়ে অনুপস্থিত হলে "অনুপস্থিত" টিক দিন। শুধু একটি অংশে অনুপস্থিত হলে সেই ঘরে AB লিখুন। অনুপস্থিত আর ০ এক নয়।'),
+    tt('Leave a box empty if you do not have the mark yet. Yellow boxes are still empty; red boxes have a mistake (for example more than the full marks).', 'নম্বর এখনো না পেলে ঘর খালি রাখুন। হলুদ ঘর এখনো খালি; লাল ঘরে ভুল আছে (যেমন পূর্ণমানের বেশি)।'),
+    tt('No internet? Keep typing. The marks stay on this device ("Waiting to send") and are sent automatically when the connection returns. Do not clear the browser data before that.', 'ইন্টারনেট নেই? লিখতে থাকুন। নম্বর এই ডিভাইসে থাকবে ("পাঠানোর অপেক্ষায়") এবং সংযোগ ফিরলে নিজে থেকে পাঠানো হবে। তার আগে ব্রাউজারের ডেটা মুছবেন না।'),
+    tt('If a row says "Changed elsewhere", someone else saved a different value. Choose "Keep mine" or "Use saved".', 'কোনো সারিতে "অন্য কোথাও বদলেছে" লেখা এলে অন্য কেউ ভিন্ন নম্বর সংরক্ষণ করেছেন। "আমারটা রাখুন" বা "সংরক্ষিতটা নিন" বাছুন।'),
+    isAdminUser ? null : tt('When every mark is entered (the yellow "missing" list is empty), press "Submit subject". After submitting you cannot change marks unless the administrator reopens the subject.', 'সব নম্বর দেওয়া হলে (হলুদ "বাকি" তালিকা খালি হলে) "বিষয় জমা দিন" চাপুন। জমার পর প্রশাসক আবার না খুললে নম্বর বদলানো যাবে না।'),
+  ].filter(Boolean);
+  let closed = false;
+  try { closed = localStorage.getItem(KEY) === '1'; } catch { /* ignore */ }
+  const box = h('details', { class: 'help-box', open: !closed },
+    h('summary', {}, tt('How to enter marks', 'কীভাবে নম্বর দেবেন')),
+    h('ol', {}, steps.map((x) => h('li', {}, x))));
+  box.addEventListener('toggle', () => { try { localStorage.setItem(KEY, box.open ? '0' : '1'); } catch { /* ignore */ } });
+  return box;
 }

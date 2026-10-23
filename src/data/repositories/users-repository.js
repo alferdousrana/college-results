@@ -52,3 +52,22 @@ export async function saveOwnPrefs(uid, prefs) {
   const b = await getBackend();
   await b.update(paths.user(uid), { prefs, updatedAt: serverTime() });
 }
+
+/**
+ * Administrator edits a teacher's name, mobile number and extra fields. Email and password belong
+ * to the sign-in account and are not editable here. The name shown on assignments is updated too.
+ */
+export async function updateTeacher(actor, uid, { displayName, phone, customFields }) {
+  if (!displayName?.trim()) throw new Error('Name is required.');
+  const b = await getBackend();
+  const before = await b.get(paths.user(uid));
+  if (!before || before.role !== 'teacher') throw new Error('Teacher not found.');
+  const batch = b.batch();
+  batch.update(paths.user(uid), { displayName: displayName.trim(), phone: phone?.trim() || null, customFields: customFields ?? {}, updatedAt: serverTime() });
+  if (before.displayName !== displayName.trim()) {
+    const { items } = await b.list(C.TEACHER_ASSIGNMENTS, { where: [['teacherId', '==', uid]], limit: 500 });
+    items.forEach((a) => batch.update(`${C.TEACHER_ASSIGNMENTS}/${a.id}`, { teacherName: displayName.trim() }));
+  }
+  addAudit(b, batch, { action: 'teacher_updated', actor, targetPath: paths.user(uid), before: { displayName: before.displayName, phone: before.phone ?? null }, after: { displayName: displayName.trim(), phone: phone?.trim() || null } });
+  await batch.commit();
+}

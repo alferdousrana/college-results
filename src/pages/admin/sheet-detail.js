@@ -65,6 +65,12 @@ async function load(sid, root, initialTab) {
       if (reason) act(async () => (await import('../../data/repositories/results-repository.js')).startCorrection(actor(), sid, reason), tt('Correction started', 'সংশোধন শুরু হয়েছে'));
     } }),
     button(tt('Archive', 'আর্কাইভ করুন'), { onClick: async () => { if (await confirmDialog({ title: tt('Archive this result sheet?', 'এই ফলাফল শিট আর্কাইভ করবেন?'), body: tt('It stays readable and printable but can no longer be corrected.', 'এটি পড়া ও প্রিন্ট করা যাবে কিন্তু আর সংশোধন করা যাবে না।'), confirmText: tt('Archive', 'আর্কাইভ করুন') })) transition(ExamState.ARCHIVED); } }));
+  if ([ExamState.PUBLISHED, ExamState.ARCHIVED].includes(st) && !s.publicWithdrawn) actions.push(button(tt('Update public lookup', 'পাবলিক অনুসন্ধান হালনাগাদ'), { onClick: async () => {
+    if (!(await confirmDialog({ title: tt('Apply the current publication settings?', 'বর্তমান প্রকাশ-সেটিংস প্রয়োগ করবেন?'), body: tt("Students' public marksheets will show the details chosen now in Settings → Result publication (for example parents' names) and use the current verification. Marks, grades and positions do not change.", 'শিক্ষার্থীদের পাবলিক মার্কশিটে এখন সেটিংস → ফলাফল প্রকাশে বাছা তথ্য (যেমন বাবা-মায়ের নাম) ও বর্তমান যাচাই ব্যবহার হবে। নম্বর, গ্রেড ও মেধাস্থান বদলাবে না।'), confirmText: tt('Update', 'হালনাগাদ') }))) return;
+    const { refreshPublicLookup } = await import('../../data/repositories/results-repository.js');
+    const r = await run(() => refreshPublicLookup(actor(), sid), { success: tt('Public lookup updated', 'পাবলিক অনুসন্ধান হালনাগাদ হয়েছে') });
+    if (r?.unverifiable?.length) toast(tt('Rolls {r} have no verification value and cannot be found online.', 'রোল {r}-এর যাচাই তথ্য নেই, অনলাইনে পাওয়া যাবে না।', { r: r.unverifiable.join(', ') }), 'error');
+  } }));
   if ([ExamState.PUBLISHED, ExamState.ARCHIVED].includes(st) && !s.publicWithdrawn) actions.push(button(tt('Remove from public lookup', 'পাবলিক অনুসন্ধান থেকে সরান'), { onClick: async () => {
     if (await confirmDialog({ title: tt('Remove from public lookup?', 'পাবলিক অনুসন্ধান থেকে সরাবেন?'), body: tt('Students will no longer find this result online. Staff can still view and print it.', 'শিক্ষার্থীরা আর অনলাইনে এই ফলাফল পাবে না। কর্মীরা দেখতে ও প্রিন্ট করতে পারবেন।'), danger: true, confirmText: tt('Remove', 'সরান') }))
       act(async () => (await import('../../data/repositories/results-repository.js')).withdrawPublicLookup(actor(), sid), tt('Removed from public lookup', 'পাবলিক অনুসন্ধান থেকে সরানো হয়েছে'));

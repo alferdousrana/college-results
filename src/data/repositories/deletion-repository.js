@@ -37,7 +37,7 @@ export async function deleteResultSheet(actor, sid, reason, onProgress) {
   const results = (await b.list(paths.results(sid))).items;
   results.forEach((r) => batch.delete(`${paths.results(sid)}/${r.id}`));
   const pubs = (await b.list(paths.publications(sid))).items;
-  const publicIds = new Set(pubs.flatMap((p) => p.publicIds ?? []));
+  const publicIds = new Set([...pubs.flatMap((p) => p.publicIds ?? []), ...(s.publicIds ?? [])]);
   publicIds.forEach((id) => batch.delete(`${C.PUBLIC_RESULTS}/${id}`));
   pubs.forEach((p) => batch.delete(`${paths.publications(sid)}/${p.id}`));
   if (s.publicId) batch.delete(`${C.PUBLIC_INDEX}/${s.publicId}`);

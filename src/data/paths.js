@@ -30,6 +30,7 @@ export const C = Object.freeze({
   AUDIT: 'auditLogs',
   FLAGS: 'featureFlags',
   NOTIFICATIONS: 'notifications',
+  STAFF: 'staff',
   STUDENT_HISTORY: 'publishedResults', // students/{id}/publishedResults/{sessionId}
 });
 
@@ -40,6 +41,7 @@ export const SETTINGS_DOCS = Object.freeze({
   STUDENT_FIELDS: 'studentFields',
   RETENTION: 'retention',
   INTERFACE: 'interface',
+  TEACHER_FIELDS: 'teacherFields',
 });
 
 const SAFE = /^[A-Za-z0-9_-]{1,64}$/;

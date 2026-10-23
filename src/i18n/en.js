@@ -15,6 +15,7 @@ export default {
   'nav.menu': 'Menu',
   'nav.more': 'More',
   'nav.classes': 'Classes & groups',
+  'nav.staff': 'Staff',
   'nav.assignments': 'Assignments',
   'nav.archive': 'Result archive',
   'nav.audit': 'Audit log',

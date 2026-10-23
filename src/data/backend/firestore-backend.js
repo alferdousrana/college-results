@@ -1,7 +1,7 @@
 import { getFirebase } from '../../core/firebase.js';
 import {
   doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, query, where, orderBy, limit, startAfter,
-  runTransaction, writeBatch, onSnapshot, serverTimestamp, arrayUnion, arrayRemove, deleteField, increment,
+  runTransaction, writeBatch, onSnapshot, serverTimestamp, arrayUnion, arrayRemove, deleteField, increment, getCountFromServer,
 } from 'firebase/firestore';
 import { OP, isOp } from '../field-ops.js';
 
@@ -58,6 +58,8 @@ export function createFirestoreBackend() {
       const qs = await getDocs(buildQuery(collectionPath, q));
       return { items: qs.docs.map(snapToDoc), cursor: q.limit && qs.docs.length === q.limit ? qs.docs[qs.docs.length - 1] : null };
     },
+    /** Server-side count (1 read per 1,000 matching documents). */
+    async count(collectionPath, q = {}) { return (await getCountFromServer(buildQuery(collectionPath, { where: q.where }))).data().count; },
     set: (path, data, opts = {}) => setDoc(ref(path), encode(data), opts.merge ? { merge: true } : {}),
     update: (path, data) => updateDoc(ref(path), encode(data)),
     remove: (path) => deleteDoc(ref(path)),

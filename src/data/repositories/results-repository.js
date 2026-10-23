@@ -114,7 +114,7 @@ export async function publishResults(actor, sid, { reason = null, onProgress } =
     batch.set(`${C.PUBLIC_RESULTS}/${hash}`, { publicId, version, vm: publicVm, publishedAt: serverTime() });
   }
   const previous = session.publishedVersion ? await b.get(`${paths.publications(sid)}/v${session.publishedVersion}`) : null;
-  for (const old of previous?.publicIds ?? []) if (!publicIds.includes(old)) batch.delete(`${C.PUBLIC_RESULTS}/${old}`);
+  for (const old of session.publicIds ?? previous?.publicIds ?? []) if (!publicIds.includes(old)) batch.delete(`${C.PUBLIC_RESULTS}/${old}`);
   batch.set(`${paths.publications(sid)}/v${version}`, {
     version, snapshot: JSON.parse(JSON.stringify(snapshot)), fingerprint: snapshot.fingerprint, publicIds, reason, by: actor.id,
     byName: actor.displayName ?? null, summary: c.sheet.summary, unverifiable, publishedAt: serverTime(),
@@ -130,7 +130,7 @@ export async function publishResults(actor, sid, { reason = null, onProgress } =
   addAudit(b, batch, { action: AuditAction.RESULT_PUBLISHED, actor, targetPath: paths.session(sid), after: { version, ...c.sheet.summary }, reason });
   await batch.commit(onProgress);
 
-  await transitionSession(actor, sid, ExamState.PUBLISHED, { reason, extra: { publishedVersion: version, publicId, publishedAt: serverTime(), correction: null, publicWithdrawn: false } });
+  await transitionSession(actor, sid, ExamState.PUBLISHED, { reason, extra: { publishedVersion: version, publicId, publicIds, publishedAt: serverTime(), correction: null, publicWithdrawn: false } });
   const nb = b.batch();
   for (const uid of session.teacherIds ?? []) await notify({ recipientUid: uid, type: version > 1 ? 'result_corrected' : 'result_published', params: { title: session.title }, link: `/teacher/results?sid=${encodeURIComponent(sid)}` }, nb);
   await nb.commit();
@@ -153,11 +153,47 @@ export async function withdrawPublicLookup(actor, sid) {
   const session = await b.get(paths.session(sid));
   const pub = session.publishedVersion ? await b.get(`${paths.publications(sid)}/v${session.publishedVersion}`) : null;
   const batch = b.batch();
-  (pub?.publicIds ?? []).forEach((id) => batch.delete(`${C.PUBLIC_RESULTS}/${id}`));
+  new Set([...(pub?.publicIds ?? []), ...(session.publicIds ?? [])]).forEach((id) => batch.delete(`${C.PUBLIC_RESULTS}/${id}`));
   if (session.publicId) batch.delete(`${C.PUBLIC_INDEX}/${session.publicId}`);
   batch.update(paths.session(sid), { publicWithdrawn: true, updatedAt: serverTime() });
   addAudit(b, batch, { action: AuditAction.PUBLIC_LOOKUP_WITHDRAWN, actor, targetPath: paths.session(sid) });
   await batch.commit();
+}
+
+/**
+ * Re-applies the CURRENT publication privacy settings (which student details are public, verification)
+ * to an already published sheet. Marks, grades, positions and the frozen print snapshot are unchanged.
+ */
+export async function refreshPublicLookup(actor, sid) {
+  const b = await getBackend();
+  const session = await b.get(paths.session(sid));
+  if (![ExamState.PUBLISHED, ExamState.ARCHIVED].includes(session?.state)) throw new Error('Only published result sheets can be updated.');
+  const pub = await getSetting(SETTINGS_DOCS.PUBLICATION, { fresh: true });
+  const results = await listResults(sid);
+  const previous = await b.get(`${paths.publications(sid)}/v${session.publishedVersion}`);
+  const verifierField = pub.verifierField || null;
+  const batch = b.batch();
+  const publicIds = [], unverifiable = [];
+  for (const r of results) {
+    let verifier = '';
+    if (verifierField) {
+      const enr = await b.get(`${paths.enrollments(sid)}/${r.id}`);
+      const rec = await b.get(paths.student(enr?.studentId ?? r.id));
+      verifier = verifierField.startsWith('custom:') ? rec?.customFields?.[verifierField.slice(7)] : rec?.[verifierField];
+      if (!verifier) { unverifiable.push(r.roll); continue; }
+    }
+    const hash = await lookupResultId(session.publicId, r.roll, verifier);
+    publicIds.push(hash);
+    const vm = sanitizeViewModel(r.vm, pub.publicStudentFields ?? []);
+    if (pub.showPositionPublicly === false) vm.position = null;
+    batch.set(`${C.PUBLIC_RESULTS}/${hash}`, { publicId: session.publicId, version: session.publishedVersion, vm, publishedAt: serverTime() });
+  }
+  for (const old of new Set([...(session.publicIds ?? []), ...(previous?.publicIds ?? [])])) if (!publicIds.includes(old)) batch.delete(`${C.PUBLIC_RESULTS}/${old}`);
+  batch.update(`${C.PUBLIC_INDEX}/${session.publicId}`, { requiresVerifier: Boolean(verifierField), verifierLabel: verifierField ? pub.verifierLabel : null });
+  batch.update(paths.session(sid), { publicIds, updatedAt: serverTime() });
+  addAudit(b, batch, { action: 'public_lookup_updated', actor, targetPath: paths.session(sid), after: { students: publicIds.length, fields: pub.publicStudentFields ?? [], verifier: verifierField } });
+  await batch.commit();
+  return { count: publicIds.length, unverifiable };
 }
 
 export async function listResults(sid) {

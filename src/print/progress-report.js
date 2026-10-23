@@ -74,7 +74,7 @@ export function renderProgressReport(vm, ctx) {
 
   const marks = h('table', { class: 'pr-marks' },
     h('thead', {},
-      h('tr', {}, h('th', { rowspan: 2 }, Lb.subject), h('th', { rowspan: 2 }, Lb.fullMarks), f.highestMarks ? h('th', { rowspan: 2 }, Lb.highest) : null,
+      h('tr', {}, f.subjectCode ? h('th', { rowspan: 2 }, Lb.code) : null, h('th', { rowspan: 2 }, Lb.subject), h('th', { rowspan: 2 }, Lb.fullMarks), f.highestMarks ? h('th', { rowspan: 2 }, Lb.highest) : null,
         cols.length ? h('th', { colspan: cols.length }, Lb.obtained) : null,
         h('th', { rowspan: 2 }, Lb.totalMarks), h('th', { rowspan: 2 }, Lb.gradePoint), h('th', { rowspan: 2 }, Lb.letterGrade)),
       h('tr', {}, cols.map((k) => h('th', {}, colLabel(k))))),
@@ -85,6 +85,7 @@ export function renderProgressReport(vm, ctx) {
         // One row per paper; total, grade point and letter grade belong to the combined subject.
         const span = sub.parts.length;
         return sub.parts.map((part, i) => h('tr', { class: fail },
+          f.subjectCode ? h('td', {}, n(part.code ?? '')) : null,
           h('td', { class: 'pr-subj' }, pick(part.name, lang)),
           h('td', {}, n(part.fullMarks)), f.highestMarks ? h('td', {}, n(part.highest, 2)) : null,
           cells(part),
@@ -93,21 +94,26 @@ export function renderProgressReport(vm, ctx) {
           i === 0 ? h('td', { rowspan: span, class: 'pr-combined' }, sub.grade ?? '') : null));
       }
       return [h('tr', { class: fail },
+        f.subjectCode ? h('td', {}, n(sub.code ?? '')) : null,
         h('td', { class: 'pr-subj' }, pick(sub.name, lang), sub.isOptional ? ` (${Lb.optional})` : ''),
         h('td', {}, n(sub.fullMarks)), f.highestMarks ? h('td', {}, n(sub.highest, 2)) : null,
         cells(sub),
         h('td', {}, sub.state === 'ABSENT' ? Lb.absent : n(sub.obtained, 2)), h('td', {}, n(sub.point)), h('td', {}, sub.grade ?? ''))];
     })),
-    h('tfoot', {}, h('tr', {}, h('th', { colspan: 2 + (f.highestMarks ? 1 : 0) + cols.length }, Lb.total),
+    h('tfoot', {}, h('tr', {}, h('th', { colspan: 2 + (f.subjectCode ? 1 : 0) + (f.highestMarks ? 1 : 0) + cols.length }, Lb.total),
       h('th', {}, n(vm.totals.obtained, 2)), h('th', {}, vm.gpa == null ? '' : n(vm.gpa, 2)), h('th', {}, vm.grade ?? ''))));
 
   const summary = h('table', { class: 'pr-summary' }, h('tbody', {},
     h('tr', {}, h('th', {}, Lb.gpa), h('td', {}, vm.gpa == null ? '' : n(vm.gpa, 2)), h('th', {}, Lb.grade), h('td', {}, vm.grade ?? ''), h('th', {}, Lb.status), h('td', { class: 'pr-status' }, statusText)),
     f.position && vm.position ? h('tr', {}, h('th', {}, Lb.position), h('td', { colspan: 5 }, `${n(vm.position.value)} (${n(vm.position.of)} ${Lb.of})`)) : null));
 
-  return h('article', { class: `print-doc print-doc--report border--${s.border.style}`, style: printVars(s, lang), lang, dataset: { orientation: s.orientation.progressReport, margin: s.marginsMm.progressReport } },
+  const P = s.page;
+  const watermark = P.watermark && ctx.institution?.assets?.logo ? h('img', { class: 'pr-watermark', src: ctx.institution.assets.logo, alt: '', style: `opacity:${P.watermarkOpacity}` }) : null;
+  return h('article', { class: `print-doc print-doc--report border--${s.border.style} ${P.centerContent ? 'pr-centered' : ''}`,
+    style: `${printVars(s, lang)};--page-color:${P.color};--page-margin:${s.marginsMm.progressReport}mm`, lang, dataset: { orientation: s.orientation.progressReport, margin: s.marginsMm.progressReport } },
+    watermark,
     h('div', { class: 'pr-top' }, institutionHeader(ctx.institution, s, lang, Lb.progressReport), scale),
-    details, marks, summary,
+    h('div', { class: 'pr-body' }, details, marks, summary),
     h('footer', { class: 'pr-sigs' }, s.signatures.filter((x) => x.enabled).map((x) => signatureBlock(x, ctx.institution, lang)),
       f.seal && ctx.institution?.assets?.seal ? h('img', { class: 'pr-seal', src: ctx.institution.assets.seal, alt: Lb.seal }) : null),
     pick(ctx.institution?.footer, lang) ? h('p', { class: 'pr-footer' }, pick(ctx.institution.footer, lang)) : null,

@@ -12,6 +12,7 @@
  *   transaction(async (tx) => …)      tx.get / tx.set / tx.update / tx.delete
  *   listenDoc(path, cb, onError) / listenList(collectionPath, query, cb, onError) → unsubscribe
  *   newId(collectionPath)
+ *   count(collectionPath, { where }) → number   (server-side aggregation; cheap)
  */
 import { isFirebaseConfigured } from '../../core/config.js';
 

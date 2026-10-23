@@ -20,10 +20,11 @@ export function buildSheetColumns(subjects, subjectColumns = {}) {
     const isComb = Boolean(s.combine?.key);
     const key = isComb ? `combo_${s.combine.key}` : (subjectColumns[s.id] || s.id);
     if (!byKey.has(key)) {
-      const col = { key, combined: isComb, label: isComb ? s.combine.name : null, names: [], ids: [], papers: [] };
+      const col = { key, combined: isComb, label: isComb ? s.combine.name : null, names: [], ids: [], papers: [], codes: [] };
       byKey.set(key, col); cols.push(col);
     }
     const col = byKey.get(key);
+    if (s.code) col.codes.push(s.code);
     if (isComb) col.papers.push({ id: s.id, paper: s.combine.paper });
     else { col.ids.push(s.id); col.names.push(s.name); }
   }
@@ -41,17 +42,18 @@ export function renderResultSheet({ vms, subjects, exam, groupLabel = null, subj
   const subHeads = (col) => (col.combined
     ? [...(C.papers ? col.papers.map((p) => Lb.papers[p.paper] ?? p.paper) : []), ...(C.total ? [Lb.total] : []), ...(C.grade ? [Lb.grade] : []), ...(C.gradePoint ? [Lb.gp] : [])]
     : [...(S.marks ? [Lb.marks] : []), ...(S.grade ? [Lb.grade] : []), ...(S.gradePoint ? [Lb.gp] : [])]);
-  const label = (col) => (col.combined ? pick(col.label, lang) : col.names.map((x) => pick(x, lang)).join(' / '));
+  const label = (col) => [col.combined ? pick(col.label, lang) : col.names.map((x) => pick(x, lang)).join(' / '),
+    s.sheet.showCodes && col.codes.length ? h('span', { class: 'rs-code' }, n(col.codes.join(', '))) : null];
   const tailHeads = [T.totalMarks ? Lb.totalMarks : null, T.gpa ? Lb.gpa : null, T.grade ? Lb.grade : null, T.merit ? Lb.merit : null].filter(Boolean);
 
-  const head1 = h('tr', {}, h('th', { rowspan: 2 }, Lb.roll), h('th', { rowspan: 2, class: 'rs-name' }, Lb.name),
+  const head1 = h('tr', {}, s.sheet.showSerial ? h('th', { rowspan: 2 }, Lb.serial) : null, h('th', { rowspan: 2 }, Lb.roll), h('th', { rowspan: 2, class: 'rs-name' }, Lb.name),
     customCols.map((c) => h('th', { rowspan: 2 }, pick(c.label, lang))),
     columns.map((col) => { const k = subHeads(col).length; return k ? h('th', { colspan: k }, label(col)) : null; }),
     tailHeads.map((t) => h('th', { rowspan: 2 }, t)));
   const head2 = h('tr', {}, columns.map((col) => subHeads(col).map((x) => h('th', {}, x))));
 
   const sorted = [...vms].sort((a, b) => Number(a.student.roll) - Number(b.student.roll));
-  const body = sorted.map((vm) => {
+  const body = sorted.map((vm, index) => {
     const byId = Object.fromEntries(vm.subjects.map((x) => [x.id, x]));
     const cells = columns.flatMap((col) => {
       const r = col.combined ? byId[col.key] : col.ids.map((id) => byId[id]).find(Boolean);
@@ -67,7 +69,7 @@ export function renderResultSheet({ vms, subjects, exam, groupLabel = null, subj
         ...(S.grade ? [h('td', {}, `${r.grade ?? ''}${opt}`)] : []), ...(S.gradePoint ? [h('td', {}, `${n(r.point)}${S.grade ? '' : opt}`)] : [])];
     });
     return h('tr', { class: vm.status === 'FAILED' ? 'is-fail' : '' },
-      h('td', {}, n(vm.student.roll)), h('td', { class: 'rs-name' }, pick(vm.student.name, lang)),
+      s.sheet.showSerial ? h('td', {}, n(index + 1)) : null, h('td', {}, n(vm.student.roll)), h('td', { class: 'rs-name' }, pick(vm.student.name, lang)),
       customCols.map((c) => h('td', {}, String(vm.student.custom.find((x) => x.key === c.key)?.value ?? ''))),
       cells,
       T.totalMarks ? h('td', { class: 'rs-total' }, n(vm.totals.obtained, 0)) : null,

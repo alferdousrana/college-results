@@ -51,10 +51,33 @@ export function render({ query }) {
       const { deleteTeacher } = await import('../../data/repositories/deletion-repository.js');
       if (await run(() => deleteTeacher(actor(), u.id), { success: tt('Teacher profile deleted. Remove the sign-in account in Firebase Console → Authentication.', 'শিক্ষকের প্রোফাইল মুছে গেছে। Firebase Console → Authentication থেকে লগইন অ্যাকাউন্ট মুছুন।') }) !== undefined) after();
     } });
-    if (u.status === 'pending') return [button(tt('Reject', 'প্রত্যাখ্যান'), { size: 'sm', onClick: set('rejected', { title: tt('Reject {n}?', '{n}-এর আবেদন প্রত্যাখ্যান করবেন?', { n: u.displayName }), body: tt('They will not be able to use the app. You can approve them later.', 'তিনি অ্যাপ ব্যবহার করতে পারবেন না। পরে অনুমোদন দেওয়া যাবে।'), confirmText: tt('Reject', 'প্রত্যাখ্যান'), danger: true }) }), approve];
-    if (u.status === 'active') return [del, button(tt('Disable', 'নিষ্ক্রিয় করুন'), { size: 'sm', onClick: set('disabled', { title: tt('Disable {n}?', '{n}-কে নিষ্ক্রিয় করবেন?', { n: u.displayName }), body: tt('They lose access immediately. Marks they entered are kept.', 'তিনি সঙ্গে সঙ্গে প্রবেশাধিকার হারাবেন। তাঁর দেওয়া নম্বর থাকবে।'), confirmText: tt('Disable', 'নিষ্ক্রিয় করুন'), danger: true }) })];
-    return [del, approve];
+    const edit = button(tt('Edit', 'সম্পাদনা'), { size: 'sm', onClick: () => editTeacher(u, after) });
+    if (u.status === 'pending') return [edit, button(tt('Reject', 'প্রত্যাখ্যান'), { size: 'sm', onClick: set('rejected', { title: tt('Reject {n}?', '{n}-এর আবেদন প্রত্যাখ্যান করবেন?', { n: u.displayName }), body: tt('They will not be able to use the app. You can approve them later.', 'তিনি অ্যাপ ব্যবহার করতে পারবেন না। পরে অনুমোদন দেওয়া যাবে।'), confirmText: tt('Reject', 'প্রত্যাখ্যান'), danger: true }) }), approve];
+    if (u.status === 'active') return [edit, del, button(tt('Disable', 'নিষ্ক্রিয় করুন'), { size: 'sm', onClick: set('disabled', { title: tt('Disable {n}?', '{n}-কে নিষ্ক্রিয় করবেন?', { n: u.displayName }), body: tt('They lose access immediately. Marks they entered are kept.', 'তিনি সঙ্গে সঙ্গে প্রবেশাধিকার হারাবেন। তাঁর দেওয়া নম্বর থাকবে।'), confirmText: tt('Disable', 'নিষ্ক্রিয় করুন'), danger: true }) })];
+    return [edit, del, approve];
   }
+  async function editTeacher(u, after) {
+    const { getSetting } = await import('../../data/repositories/settings-repository.js');
+    const { customFieldInput, readCustom } = await import('./student-form.js');
+    const defs = ((await getSetting('teacherFields', { fresh: true })).fields ?? []).filter((d) => d.enabled !== false && d.showOnRecord !== false).sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    const name = field({ label: tt('Full name', 'পূর্ণ নাম'), name: 'en', required: true, value: u.displayName });
+    const phone = field({ label: tt('Mobile number', 'মোবাইল নম্বর'), name: 'ep', type: 'tel', value: u.phone ?? '' });
+    const inputs = Object.fromEntries(defs.map((d) => [d.key, customFieldInput(d, u.customFields?.[d.key])]));
+    openModal({ title: tt('Edit teacher', 'শিক্ষকের তথ্য সম্পাদনা'), content: h('div', {},
+      h('div', { class: 'form-grid' }, name.el, phone.el, h('div', { class: 'field' }, h('span', { class: 'field__label' }, tt('Email (sign-in)', 'ইমেইল (লগইন)')), h('p', { class: 'muted' }, u.email))),
+      defs.length ? h('div', { class: 'form-grid' }, defs.map((d) => inputs[d.key].el)) : h('p', { class: 'muted small' }, tt('Add more teacher fields in Settings → Teacher fields.', 'আরও তথ্যঘর যোগ করতে সেটিংস → শিক্ষকের তথ্যঘর।')),
+      h('p', { class: 'muted small' }, tt('Email and password belong to the teacher\'s sign-in account and cannot be changed here. The teacher can reset the password from the sign-in page.', 'ইমেইল ও পাসওয়ার্ড শিক্ষকের লগইন অ্যাকাউন্টের অংশ, এখানে বদলানো যায় না। শিক্ষক লগইন পেজ থেকে পাসওয়ার্ড বদলাতে পারবেন।'))),
+    actions: [{ label: t('common.cancel'), onClick: () => true }, { label: t('common.save'), kind: 'primary', onClick: async () => {
+      if (!name.value) { name.setError(tt('Required', 'আবশ্যক')); return false; }
+      const custom = readCustom(defs, inputs);
+      if (custom.errors.length) return false;
+      const { updateTeacher } = await import('../../data/repositories/users-repository.js');
+      const r = await run(() => updateTeacher(actor(), u.id, { displayName: name.value, phone: phone.value, customFields: { ...(u.customFields ?? {}), ...custom.values } }), { success: tt('Saved', 'সংরক্ষিত') });
+      if (r !== undefined) after();
+      return r !== undefined;
+    } }] });
+  }
+
   function create(after) {
     const f = { name: field({ label: tt('Full name', 'পূর্ণ নাম'), name: 'cn', required: true }), email: field({ label: tt('Email', 'ইমেইল'), name: 'ce', type: 'email', required: true }),
       phone: field({ label: tt('Mobile number', 'মোবাইল নম্বর'), name: 'cp', type: 'tel' }),

@@ -40,7 +40,8 @@ async function init(query, root) {
 
   const order = (g) => cats.groups.find((x) => x.id === g)?.order ?? 99;
   const groups = bundle.sheets.map((x) => x.id).sort((a, b) => order(a) - order(b));
-  const state = { lang: query.get('lang') || ctx.print?.language || currentLang(), group: query.get('group') || groups[0], mode: query.get('student') ? 'marksheet' : 'sheet', student: query.get('student') || 'all' };
+  const ALL = '__all';
+  const state = { lang: query.get('lang') || ctx.print?.language || currentLang(), group: query.get('group') || (groups.length > 1 ? ALL : groups[0]), mode: query.get('student') ? 'marksheet' : 'sheet', student: query.get('student') || 'all' };
   const area = h('div', { class: 'print-area' });
   const controls = h('div', { class: 'print-controls no-print' });
   const { renderResultSheet } = await import('../print/result-sheet.js');
@@ -50,28 +51,34 @@ async function init(query, root) {
   const printSettings = withPrintDefaults(ctx.print);
 
   function paintControls() {
-    const groupVms = vms.filter((v) => v._groupId === state.group).sort((a, b) => Number(a.student.roll) - Number(b.student.roll));
+    const groupVms = vms.filter((v) => state.group === ALL || v._groupId === state.group).sort((a, b) => groups.indexOf(a._groupId) - groups.indexOf(b._groupId) || Number(a.student.roll) - Number(b.student.roll));
     const sel = (label, value, options, onChange) => h('label', { class: 'field field--inline' }, h('span', { class: 'field__label' }, label),
       h('select', { class: 'input', onchange: (e) => { onChange(e.target.value); paint(); } }, options.map(([v, l]) => h('option', { value: v, selected: v === value }, l))));
     controls.replaceChildren(
       sel(tt('Printed language', 'মুদ্রণের ভাষা'), state.lang, [['en', 'English'], ['bn', 'বাংলা']], (v) => { state.lang = v; }),
-      groups.length > 1 ? sel(tt('Group', 'বিভাগ'), state.group, groups.map((g) => [g, nameOf(cats.groups, g)]), (v) => { state.group = v; state.student = 'all'; }) : null,
+      groups.length > 1 ? sel(tt('Group', 'বিভাগ'), state.group, [[ALL, tt('All groups (one print)', 'সব বিভাগ (একসাথে প্রিন্ট)')], ...groups.map((g) => [g, nameOf(cats.groups, g)])], (v) => { state.group = v; state.student = 'all'; }) : null,
       sel(tt('Document', 'নথি'), state.mode, [['sheet', tt('Full result sheet', 'পূর্ণ ফলাফল শিট')], ['marksheet', tt('Individual marksheets', 'একক মার্কশিট')]], (v) => { state.mode = v; }),
-      state.mode === 'marksheet' ? sel(tt('Student', 'শিক্ষার্থী'), state.student, [['all', tt('All students in this group', 'এই বিভাগের সব শিক্ষার্থী')], ...groupVms.map((v) => [v._id, `${v.student.roll} — ${L(v.student.name)}`])], (v) => { state.student = v; }) : null,
+      state.mode === 'marksheet' ? sel(tt('Student', 'শিক্ষার্থী'), state.student, [['all', state.group === ALL ? tt('All students', 'সব শিক্ষার্থী') : tt('All students in this group', 'এই বিভাগের সব শিক্ষার্থী')], ...groupVms.map((v) => [v._id, `${v.student.roll} — ${L(v.student.name)}`])], (v) => { state.student = v; }) : null,
       h('button', { class: 'btn btn--primary', type: 'button', onclick: () => printContainer(area, { families: fontFamiliesFor(printSettings), pageNumbers: printSettings.sheet.pageNumbers, pageLabel: state.lang === 'bn' ? 'পৃষ্ঠা' : 'Page' }) }, svgIcon('print'), h('span', {}, tt('Print', 'প্রিন্ট'))),
       h('p', { class: 'muted small' }, tt('To save a PDF, choose "Save as PDF" in the print dialog.', 'পিডিএফ রাখতে প্রিন্ট উইন্ডোতে "Save as PDF" বাছুন।')));
   }
 
-  function paint() {
-    paintControls();
-    const groupVms = vms.filter((v) => v._groupId === state.group);
-    const sheet = bundle.sheets.find((x) => x.id === state.group);
+  function sheetFor(groupId, c) {
+    const groupVms = vms.filter((v) => v._groupId === groupId);
+    const sheet = bundle.sheets.find((x) => x.id === groupId);
     const ord = (x) => x.definition?.order ?? 999;
     const subjects = (sheet?.subjectIds ?? []).map((id) => bundle.subjects.find((x) => x.id === id)).filter(Boolean).sort((a, b) => ord(a) - ord(b)).map((x) => ({ ...subjectDefinition(x) }));
+    return groupVms.length ? renderResultSheet({ vms: groupVms, subjects, exam: groupVms[0].exam, groupLabel: groupVms[0].exam.groupLabel, subjectColumns: sheet?.subjectColumns ?? {} }, c) : null;
+  }
+
+  function paint() {
+    paintControls();
     const c = { ...ctx, lang: state.lang, print: printSettings };
-    if (!groupVms.length) { area.replaceChildren(emptyState({ message: tt('No students in this group.', 'এই বিভাগে শিক্ষার্থী নেই।') })); return; }
+    const shownGroups = state.group === ALL ? groups : [state.group];
+    if (!vms.some((v) => shownGroups.includes(v._groupId))) { area.replaceChildren(emptyState({ message: tt('No students in this group.', 'এই বিভাগে শিক্ষার্থী নেই।') })); return; }
     if (state.mode === 'sheet') {
-      area.replaceChildren(featureGate('result_sheet_print', () => renderResultSheet({ vms: groupVms, subjects, exam: groupVms[0].exam, groupLabel: groupVms[0].exam.groupLabel, subjectColumns: sheet?.subjectColumns ?? {} }, c)));
+      // One sheet per group, in group order (Science, Humanities, Business Studies); each starts on a new page.
+      area.replaceChildren(featureGate('result_sheet_print', () => h('div', {}, shownGroups.map((g) => sheetFor(g, c)))));
       requestAnimationFrame(async () => {
         const { applySheetFit } = await import('../print/print-runner.js');
         const z = applySheetFit(area);
@@ -79,8 +86,9 @@ async function init(query, root) {
           z < 0.6 ? ` ${tt('To make the text larger, choose Legal paper or hide some columns in Settings → Print design.', 'লেখা বড় করতে সেটিংস → মুদ্রণ নকশায় Legal কাগজ বাছুন বা কিছু কলাম লুকান।')}` : ''));
       });
     } else {
-      const list = state.student === 'all' ? groupVms : groupVms.filter((v) => v._id === state.student);
-      area.replaceChildren(featureGate('progress_report_print', () => h('div', {}, list.sort((a, b) => Number(a.student.roll) - Number(b.student.roll)).map((vm) => renderProgressReport(vm, c)))));
+      const inGroups = vms.filter((v) => shownGroups.includes(v._groupId)).sort((a, b) => groups.indexOf(a._groupId) - groups.indexOf(b._groupId) || Number(a.student.roll) - Number(b.student.roll));
+      const list = state.student === 'all' ? inGroups : inGroups.filter((v) => v._id === state.student);
+      area.replaceChildren(featureGate('progress_report_print', () => h('div', {}, list.map((vm) => renderProgressReport(vm, c)))));
     }
   }
 

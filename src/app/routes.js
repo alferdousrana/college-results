@@ -21,6 +21,7 @@ export const ROUTES = [
   { path: '/admin/students', access: 'admin', load: () => import('../pages/admin/students.js'), nav: 'nav.students', icon: 'users', navFor: A },
   { path: '/admin/students/import', access: 'admin', load: () => import('../pages/admin/student-import.js') },
   { path: '/admin/teachers', access: 'admin', load: () => import('../pages/admin/teachers.js'), nav: 'nav.teachers', icon: 'users', navFor: A },
+  { path: '/admin/staff', access: 'admin', load: () => import('../pages/admin/staff.js'), nav: 'nav.staff', icon: 'users', navFor: A },
   { path: '/admin/classes', access: 'admin', load: () => import('../pages/admin/classes.js'), nav: 'nav.classes', icon: 'book', navFor: A },
   { path: '/admin/subjects', access: 'admin', load: () => import('../pages/admin/subjects.js'), nav: 'nav.subjects', icon: 'book', navFor: A },
   { path: '/admin/assignments', access: 'admin', load: () => import('../pages/admin/assignments.js'), nav: 'nav.assignments', icon: 'edit', navFor: A },

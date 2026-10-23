@@ -87,6 +87,9 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
+    // ---------- non-teaching staff (admin only; they do not sign in) ----------
+    match /staff/{staffId} { allow read, write: if isAdmin(); }
+
     // ---------- students (private records: admin only) ----------
     match /students/{studentId} {
       allow read, write: if isAdmin();

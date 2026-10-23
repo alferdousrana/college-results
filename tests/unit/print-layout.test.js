@@ -70,7 +70,9 @@ describe('full result sheet', () => {
     const { vms, subjects, exam } = sampleData();
     const el = renderResultSheet({ vms: [...vms].reverse(), subjects, exam, groupLabel: exam.groupLabel }, ctx('en'));
     expect(el.querySelectorAll('thead tr')).toHaveLength(2);
-    const rolls = [...el.querySelectorAll('tbody tr td:first-child')].map((td) => td.textContent);
+    const serials = [...el.querySelectorAll('tbody tr td:first-child')].map((td) => td.textContent);
+    expect(serials).toEqual(['1', '2', '3']); // serial restarts at 1 in every group's sheet
+    const rolls = [...el.querySelectorAll('tbody tr td:nth-child(2)')].map((td) => td.textContent);
     expect(rolls).toEqual(['101', '102', '103']);
     const heads = [...el.querySelectorAll('thead tr:first-child th')].map((x) => x.textContent);
     expect(heads).toContain('Bangla'); // 1st + 2nd papers share one combined column
@@ -83,6 +85,21 @@ describe('full result sheet', () => {
     const css = readFileSync(resolve(process.cwd(), 'src/print/print.css'), 'utf8');
     expect(css).toMatch(/thead \{ display: table-header-group/);
     expect(css).toMatch(/break-inside: avoid/);
+  });
+});
+
+describe('round 8 print details', () => {
+  it('shows subject codes on both documents and a watermark', () => {
+    const { vms, subjects, exam } = sampleData();
+    const withCodes = subjects.map((x) => ({ ...x, code: x.id === 'physics' ? '174' : x.id === 'bangla1' ? '101' : x.id === 'bangla2' ? '102' : null }));
+    const sheet = renderResultSheet({ vms, subjects: withCodes, exam }, ctx('en'));
+    expect(sheet.textContent).toContain('174');
+    expect(sheet.textContent).toContain('101, 102');
+    const vm = { ...vms[0], subjects: vms[0].subjects.map((x) => (x.id === 'physics' ? { ...x, code: '174' } : x)) };
+    const rep = renderProgressReport(vm, { ...ctx('en'), institution: { ...ctx('en').institution, assets: { logo: 'data:image/png;base64,AAAA' } } });
+    expect([...rep.querySelectorAll('.pr-marks th')].map((x) => x.textContent)).toContain('Code');
+    expect(rep.textContent).toContain('174');
+    expect(rep.querySelector('.pr-watermark')).not.toBeNull();
   });
 });
 

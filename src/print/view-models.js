@@ -24,10 +24,10 @@ export function buildStudentViewModel({ exam, enrollment, student = null, defs, 
         const parts = r.parts.map((p) => {
           const d = defs[p.subjectId];
           const comps = Object.fromEntries((p.result.componentResults ?? []).map((c) => [c.componentId, c.raw]));
-          return { id: p.subjectId, name: d?.name ?? p.subjectId, paper: p.paper, fullMarks: p.result.fullMarks, obtained: p.result.obtained ?? null, state: p.result.state, highest: highest[p.subjectId] ?? null,
+          return { id: p.subjectId, name: d?.name ?? p.subjectId, code: d?.code ?? null, paper: p.paper, fullMarks: p.result.fullMarks, obtained: p.result.obtained ?? null, state: p.result.state, highest: highest[p.subjectId] ?? null,
             components: (d?.components ?? []).map((c) => ({ id: c.id, type: c.type ?? null, label: c.label ?? c.id, maxMarks: c.maxMarks, paper: p.paper, value: p.result.state === 'ABSENT' ? 'AB' : comps[c.id] ?? null })) };
         });
-        return { id, name: r.name, code: null, isCombined: true, parts, fullMarks: r.fullMarks, highest: highest[id] ?? null,
+        return { id, name: r.name, code: parts.map((p) => p.code).filter(Boolean).join(', ') || null, isCombined: true, parts, fullMarks: r.fullMarks, highest: highest[id] ?? null,
           components: parts.flatMap((p) => p.components), obtained: r.obtained ?? null, point: r.point ?? null, grade: r.grade ?? null,
           passed: r.passed ?? null, state: r.state, isOptional: Boolean(r.isOptional), failedComponents: r.failedComponents ?? [] };
       }

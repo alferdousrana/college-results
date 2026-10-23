@@ -78,3 +78,25 @@
   .print-doc--sheet .rs-table { zoom: var(--sheet-zoom, 1); }
   .print-doc--sheet { width: auto !important; }
 }
+
+/* Round 8: centred header, watermark, page colour, centred marksheet body, codes */
+.pr-head { position: relative; justify-content: center; }
+.pr-head--logo-left .pr-logo, .pr-head--logo-right .pr-logo { position: absolute; top: 0; }
+.pr-head--logo-left .pr-logo { left: 0; } .pr-head--logo-right .pr-logo { right: 0; }
+.pr-head--logo-left .pr-head__text, .pr-head--logo-right .pr-head__text { padding: 0 24mm; }
+.print-doc--report .pr-top { position: relative; justify-content: center; }
+.print-doc--report .pr-top .pr-scale { position: absolute; right: 0; top: 0; }
+.print-doc--report .pr-top .pr-head__text { padding-right: 34mm; padding-left: 34mm; }
+.print-doc--report { background: var(--page-color, #fff); -webkit-print-color-adjust: exact; print-color-adjust: exact; overflow: hidden; }
+.print-doc--report > * { position: relative; z-index: 1; }
+.print-doc--report > .pr-watermark { position: absolute; z-index: 0; left: 50%; top: 52%; width: 62%; transform: translate(-50%, -50%); pointer-events: none; }
+.pr-centered { display: flex; flex-direction: column; }
+.pr-centered .pr-body { margin: auto 0; padding: 4mm 0; }
+.pr-centered .pr-body .pr-marks { font-size: calc(var(--print-table, 9pt) + 0.5pt); }
+.rs-code { display: block; font-weight: 400; font-size: 0.85em; }
+.rs-sub { text-align: center; }
+@media print {
+  .print-doc--report.pr-centered { min-height: calc(297mm - 2 * var(--page-margin, 10mm) - 1mm) !important; height: calc(297mm - 2 * var(--page-margin, 10mm) - 1mm); }
+  .print-doc--report.pr-centered[data-orientation='landscape'] { min-height: calc(210mm - 2 * var(--page-margin, 10mm) - 1mm) !important; height: auto; }
+  .lookup-card-wrap { border: 0 !important; box-shadow: none !important; padding: 0 !important; }
+}

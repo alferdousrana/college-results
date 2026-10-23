@@ -77,13 +77,27 @@ async function init(root, query) {
     if (!page) return;
     cursor = page.cursor;
     table.setRows(page.items, { more: Boolean(cursor) });
+    paintCounts();
+  }
+  // Group-wise totals for the chosen session, class and status (server-side counts, not just the loaded page).
+  const countsBox = h('div', { class: 'count-chips', 'aria-live': 'polite' });
+  async function paintCounts() {
+    try {
+      const { studentCounts } = await import('../../data/repositories/stats-repository.js');
+      const cls = cats.classes.find((c) => c.id === sel.classId);
+      if (!cls) { countsBox.replaceChildren(); return; }
+      const res = (await studentCounts(sel.yearId, [cls], cats.groups, { status: sel.status || null }))[cls.id];
+      const gs = cats.groups.filter((g) => res.byGroup[g.id] != null);
+      countsBox.replaceChildren(...gs.map((g) => h('span', { class: 'chip' }, `${L(g.name)}: `, h('strong', {}, String(res.byGroup[g.id])))),
+        h('span', { class: 'chip chip--total' }, `${tt('Total', 'মোট')}: `, h('strong', {}, String(res.total))));
+    } catch { countsBox.replaceChildren(); }
   }
   [yearF, classF, statusF].forEach((x) => x.input.addEventListener('change', reload));
   root.replaceChildren(
     pageHeader({ title: t('nav.students'), actions: [
       linkButton(tt('Import JSON', 'JSON ইমপোর্ট'), '#/admin/students/import', {}),
       button(tt('Add student', 'শিক্ষার্থী যোগ'), { kind: 'primary', icon: 'plus', onClick: () => openStudentForm({ cats, fieldDefs, defaults: { yearId: sel.yearId, classId: sel.classId }, onSaved: reload }) })] }),
-    h('div', { class: 'filter-bar' }, yearF.el, classF.el, statusF.el), table.el);
+    h('div', { class: 'filter-bar' }, yearF.el, classF.el, statusF.el), countsBox, table.el);
   await reload();
   const focus = query.get('student');
   if (focus) { const s = await repo.getStudent(focus); if (s) details(s); }

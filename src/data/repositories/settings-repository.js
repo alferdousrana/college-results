@@ -8,9 +8,10 @@ import { DEFAULT_PRINT_SETTINGS } from '../../print/print-settings.js';
 /** Defaults are returned when a settings document does not exist yet. */
 export const SETTINGS_DEFAULTS = Object.freeze({
   [SETTINGS_DOCS.GRADING]: { scale: REFERENCE_SCALE_5, policy: DEFAULT_POLICY, confirmed: false },
-  [SETTINGS_DOCS.PUBLICATION]: { verifierField: null, verifierLabel: { en: 'Date of birth', bn: 'জন্ম তারিখ' }, publicStudentFields: [], showPositionPublicly: true },
+  [SETTINGS_DOCS.PUBLICATION]: { verifierField: null, verifierLabel: { en: 'Date of birth', bn: 'জন্ম তারিখ' }, publicStudentFields: ['fatherName', 'motherName'], showPositionPublicly: true },
   [SETTINGS_DOCS.PRINT]: DEFAULT_PRINT_SETTINGS,
   [SETTINGS_DOCS.STUDENT_FIELDS]: { fields: [] },
+  teacherFields: { fields: [] },
   [SETTINGS_DOCS.RETENTION]: { publicLookupYears: 5, keepInternalYears: 10 },
   [SETTINGS_DOCS.INTERFACE]: { defaultLang: 'en', defaultTheme: 'light' },
 });
@@ -23,7 +24,8 @@ export const INSTITUTION_DEFAULT = Object.freeze({
     committee: { name: { en: '', bn: '' }, title: { en: 'Convener, Examination Committee', bn: 'আহ্বায়ক, পরীক্ষা কমিটি' } },
     classTeacher: { name: { en: '', bn: '' }, title: { en: 'Class Teacher', bn: 'শ্রেণি শিক্ষক' } },
   },
-  assets: {}, // { logo, principalSignature, committeeSignature, classTeacherSignature, seal } as data URLs
+  assets: {}, // { logo, principalSignature, committeeSignature, classTeacherSignature, seal, heroImage } as data URLs
+  landing: { title: { en: '', bn: '' }, description: { en: '', bn: '' } },
 });
 
 const memo = new Map();

@@ -162,7 +162,9 @@ describe('review, publication, lookup, correction and history', () => {
     const [exam] = await listPublishedExams();
     const found = await fetchPublicResult(exam.id, '101', '');
     expect(found.result.vm.student.roll).toBe('101');
-    expect(found.result.vm.student.fatherName).toBeNull();
+    // Parents' names are shown by default (college's choice, Settings → Result publication); internal ID never.
+    expect(found.result.vm.student.fatherName).toBe('Father of Ayesha');
+    expect(found.result.vm.student.studentCode).toBeNull();
     expect(await fetchPublicResult(exam.id, '999', '')).toBeNull();
     expect((await listPublishedExams()).some((e) => e.title?.en?.startsWith('Annual'))).toBe(false); // unpublished never listed
   });

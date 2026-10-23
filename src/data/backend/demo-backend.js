@@ -112,6 +112,7 @@ export function createDemoBackend({ storage = null, seed = null } = {}) {
     newId: () => `demo${Date.now().toString(36)}${(counter++).toString(36)}${Math.random().toString(36).slice(2, 6)}`,
     async get(path) { return asDoc(path); },
     async list(collectionPath, q) { return runQuery(collectionPath, q); },
+    async count(collectionPath, q = {}) { return runQuery(collectionPath, { where: q.where ?? [] }).items.length; },
     async set(path, data, opts) { writeSet(path, data, opts); persist(); },
     async update(path, data) { writeUpdate(path, data); persist(); },
     async remove(path) { delete docs[path]; persist(); },

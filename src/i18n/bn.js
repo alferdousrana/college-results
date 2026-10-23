@@ -15,6 +15,7 @@ export default {
   'nav.menu': 'মেনু',
   'nav.more': 'আরও',
   'nav.classes': 'শ্রেণি ও বিভাগ',
+  'nav.staff': 'কর্মচারী',
   'nav.assignments': 'দায়িত্ব বণ্টন',
   'nav.archive': 'ফলাফল আর্কাইভ',
   'nav.audit': 'অডিট লগ',

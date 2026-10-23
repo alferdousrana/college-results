@@ -15,9 +15,12 @@ import { normalizeDigits } from '../domain/validation/mark-input.js';
 export const title = 'lookup.title';
 
 export function render() {
-  const page = h('section', { class: 'page page--lookup' }, h('div', { class: 'lookup-hero no-print' }, h('h1', {}, t('lookup.title')), h('p', { class: 'lede' }, t('lookup.intro'))));
+  const hero = h('div', { class: 'landing-hero no-print' });
+  const page = h('section', { class: 'page page--lookup' }, hero);
   if (!getState().firebaseReady) { page.append(h('p', { class: 'notice' }, t('setup.body'))); return page; }
-  page.append(featureGate('public_result_lookup', () => lookupForm()));
+  paintHero(hero);
+  page.append(h('div', { class: 'lookup-card-wrap' }, h('h2', { class: 'lookup-card-title no-print' }, t('lookup.title')), h('p', { class: 'muted no-print' }, t('lookup.intro')),
+    featureGate('public_result_lookup', () => lookupForm())), siteFooter());
   return page;
 }
 
@@ -79,4 +82,31 @@ async function resultView({ exam, result }) {
     h('div', { class: 'row-actions no-print lookup-actions' }, langSel,
       isEnabled('progress_report_print') ? h('button', { class: 'btn btn--primary', type: 'button', onclick: () => printContainer(area, { families: fontFamiliesFor(print), pageNumbers: false }) }, svgIcon('print'), h('span', {}, t('lookup.print'))) : null),
     area);
+}
+
+/** College banner: picture, logo, name and description (Settings → Result page for students). */
+async function paintHero(hero) {
+  try {
+    const { getInstitution } = await import('../data/repositories/settings-repository.js');
+    const inst = await getInstitution();
+    const land = inst.landing ?? {};
+    const title = L(land.title) || L(inst.name) || t('app.name');
+    hero.classList.toggle('has-image', Boolean(inst.assets?.heroImage));
+    if (inst.assets?.heroImage) hero.style.setProperty('--hero-image', `url("${inst.assets.heroImage}")`);
+    hero.replaceChildren(h('div', { class: 'landing-hero__inner' },
+      land.showLogo !== false && inst.assets?.logo ? h('img', { class: 'landing-hero__logo', src: inst.assets.logo, alt: '' }) : null,
+      h('h1', { class: 'landing-hero__title' }, title),
+      L(inst.address) ? h('p', { class: 'landing-hero__address' }, L(inst.address)) : null,
+      L(land.description) ? h('p', { class: 'landing-hero__desc' }, L(land.description)) : null,
+      L(land.notice) ? h('p', { class: 'landing-hero__notice', role: 'note' }, L(land.notice)) : null));
+  } catch {
+    hero.replaceChildren(h('div', { class: 'landing-hero__inner' }, h('h1', { class: 'landing-hero__title' }, t('lookup.title'))));
+  }
+}
+
+/** Small credit line under the public page. */
+export function siteFooter() {
+  return h('footer', { class: 'site-footer no-print' },
+    h('span', {}, 'Powered by SAGSC'), h('span', { 'aria-hidden': 'true' }, ' · '),
+    h('span', {}, 'Developed by ', h('a', { href: 'https://alferdousrana.github.io/', target: '_blank', rel: 'noopener' }, 'Md. Al Ferdous')));
 }

@@ -12,18 +12,20 @@ export const DEFAULT_PRINT_SETTINGS = Object.freeze({
   headingStyle: 'bold',                 // 'bold' | 'boldUnderline' | 'caps'
   logoPosition: 'left',                 // 'left' | 'center' | 'right' | 'none'
   border: { style: 'double', widthPt: 3 },
+  // Individual marksheet page: background colour and a large faint logo in the middle.
+  page: { color: '#ffffff', watermark: true, watermarkOpacity: 0.07, centerContent: true },
   table: { cellPaddingPt: 2, lineWidthPt: 0.75 },
   // Full result sheet. The whole width always fits one page (the table is scaled down if needed).
   sheet: {
     paper: 'A4',                          // 'A4' | 'Legal'
-    nameColumnMm: 38, pageNumbers: true,
+    nameColumnMm: 38, pageNumbers: true, showSerial: true, showCodes: true,
     combined: { papers: true, total: true, grade: false, gradePoint: true },   // Bangla, English (1st/2nd paper subjects)
     single: { marks: false, grade: true, gradePoint: true },                   // every other subject
     totals: { totalMarks: true, gpa: true, grade: false, merit: true },
   },
   marksheetFields: {
     fatherName: true, motherName: true, studentCode: false, section: false, shift: false, group: true,
-    highestMarks: true, gradeScale: true, position: true, examHeld: true, seal: true, printedOn: true,
+    highestMarks: true, gradeScale: true, position: true, examHeld: true, seal: true, printedOn: true, subjectCode: true,
   },
   signatures: [
     { role: 'guardian', label: { en: 'Guardian', bn: 'অভিভাবক' }, position: 'left', enabled: true, useImage: false },
@@ -45,7 +47,7 @@ export function resolveFont(id, lang) {
 export function withPrintDefaults(s = {}) {
   const d = structuredClone(DEFAULT_PRINT_SETTINGS);
   const out = { ...d, ...s };
-  for (const k of ['orientation', 'marginsMm', 'fonts', 'fontSizePt', 'border', 'table', 'sheet', 'marksheetFields']) out[k] = { ...d[k], ...(s[k] ?? {}) };
+  for (const k of ['orientation', 'marginsMm', 'fonts', 'fontSizePt', 'border', 'table', 'sheet', 'marksheetFields', 'page']) out[k] = { ...d[k], ...(s[k] ?? {}) };
   for (const k of ['combined', 'single', 'totals']) out.sheet[k] = { ...d.sheet[k], ...(s.sheet?.[k] ?? {}) };
   // Older settings used showGradePoint / showMerit.
   if (s.sheet?.showGradePoint === false) { out.sheet.single.gradePoint = false; out.sheet.combined.gradePoint = false; }

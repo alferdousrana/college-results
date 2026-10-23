@@ -10,7 +10,7 @@ Change the language (English / বাংলা), light or dark appearance, table
 
 **Before the first examination.** The quickest start is **Settings → Examinations → Load starter data**: it adds the sessions, classes, the three groups with their subject rules, examination names and all subjects. Then: In **Settings**, fill in **Institution** (names in English and Bangla, address, logo, signatures, seal) and review **Grades and pass rules**. The grade scale starts with the values from the sample marksheet; check them against your institution's rules and save. Check **Classes & groups** (sessions such as 2026-2027, classes, groups and how many subjects a student chooses, examination names), **Subjects** (each part's full and pass marks, the subject's role in each group, and whether it is the 1st or 2nd paper of Bangla or English) and **Assignments** (which approved teacher teaches which subject or paper).
 
-**Teachers.** Teachers can request an account; requests appear under **Teachers → Requests**. Choose **Approve** or **Reject**. You can also **Create teacher account** yourself. A teacher can only enter marks for the subjects assigned to them.
+**Teachers and staff.** Teachers can request an account; requests appear under **Teachers → Requests**. Choose **Approve** or **Reject**. You can also **Create teacher account** yourself. A teacher can only enter marks for the subjects assigned to them. **Edit** changes a teacher's name, mobile number and any extra fields you add in **Settings → Teacher fields** (email and password stay with the teacher). Office and support staff are kept on the **Staff** page. The dashboard shows how many teachers, staff and students (class and group wise) you have.
 
 **Students.** **Students** lists one class and year at a time. Use **Add student**, **Edit**, or the status list to mark a student inactive, transferred or left — records are never deleted. Each student keeps a permanent **Student ID**, so a changed roll number never mixes up results. To add many students, use **Import JSON**: download the template, fill it in, choose the file and check the preview. Every problem is listed by row before anything is saved, and you decide whether students who already exist are updated or skipped.
 
@@ -40,7 +40,7 @@ Change the language (English / বাংলা), light or dark appearance, table
 
 ## For students and guardians
 
-1. Open the app and choose **Find a result**. No account is needed.
+1. Open the app. The first page shows the college and a **Find your result** box in the middle. No account is needed. (Edit this page in **Settings → Result page for students**.)
 2. Choose the class, the examination year and the examination name, and type the roll number. If the college asks for a verification code (such as date of birth), enter it.
 3. Choose **Show result**. Pick English or বাংলা for the marksheet and choose **Print marksheet** (or **Save as PDF** in the print window).
 

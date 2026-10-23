@@ -88,3 +88,11 @@ Publishing stores a calculation snapshot (`domain/calculation/snapshot.js`) — 
 * `examSessions/{id}.deleting { reason, by, at }` while a whole sheet is being deleted.
 * Sessions are the `academicYears` collection (label such as `2026-2027`).
 * `config/starter-data.json`: the college's starter catalogue, loaded from Settings → Examinations.
+
+## Round 8 fields
+* `staff/{id}`: `name{en,bn}`, `designation{en,bn}`, `phone`, `joiningDate`, `status`, `order` (admin only).
+* `users/{uid}.customFields` with definitions in `settings/teacherFields`.
+* `institution/public.landing { title, description, notice, showLogo }`, `assets.heroImage`.
+* `settings/print.page { color, watermark, watermarkOpacity, centerContent }`, `sheet.showSerial`, `sheet.showCodes`, `marksheetFields.subjectCode`.
+* `examSessions/{id}.publicIds`: current public result ids (also kept per publication), used by "Update public lookup".
+* Dashboard and student totals use server-side count queries (1 read per 1,000 documents).
