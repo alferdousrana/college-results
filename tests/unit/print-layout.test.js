@@ -103,6 +103,19 @@ describe('round 8 print details', () => {
   });
 });
 
+describe('round 9 print details', () => {
+  it('spreads the motto across the top and draws the name frame', () => {
+    const { vms } = sampleData();
+    const c = ctx('bn', { border: { style: 'nameText', widthPt: 3, color: '#123456' } });
+    c.institution = { ...c.institution, header: { en: 'Education Peace Progress', bn: 'শিক্ষা শান্তি প্রগতি' } };
+    const el = renderProgressReport(vms[0], c);
+    expect([...el.querySelectorAll('.pr-motto span')].map((x) => x.textContent)).toEqual(['শিক্ষা', 'শান্তি', 'প্রগতি']);
+    expect(el.querySelector('.pr-headtext')).toBeNull();
+    expect(el.querySelectorAll('.pr-frame > div')).toHaveLength(4);
+    expect(el.querySelector('.pr-frame__top').textContent).toContain('টেস্ট কলেজ');
+  });
+});
+
 describe('fonts', () => {
   it('offers at least ten bundled English and ten bundled Bangla fonts', () => {
     expect(ENGLISH_FONTS.length).toBeGreaterThanOrEqual(10);

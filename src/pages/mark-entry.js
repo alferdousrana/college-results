@@ -241,18 +241,27 @@ async function init(sid, subjectId, root) {
           h('ul', { class: 'missing-list' }, missing.slice(0, 200).map((m) => h('li', {}, h('a', { href: '#', onclick: (e) => { e.preventDefault(); rowEls.get(m.studentId)?.querySelector(`input[data-comp="${m.componentId}"]`)?.focus(); } },
             tt('Roll {r} — {n}: {c}', 'রোল {r} — {n}: {c}', { r: m.roll, n: L(m.name), c: m.componentLabel }))))))
       : h('p', { class: 'notice' }, tt('No marks missing. Absent students are not counted as missing.', 'কোনো নম্বর বাকি নেই। অনুপস্থিত শিক্ষার্থীদের বাকি ধরা হয় না।')));
-    submitBtn.disabled = !editable || isAdminUser || missing.length > 0;
+    submitBtn.disabled = !editable || submitted || missing.length > 0;
   }
 
   const submitBtn = button(tt('Submit subject', 'বিষয় জমা দিন'), { kind: 'primary', onClick: async () => {
     if (rows.some((r) => ['dirty', 'saving', 'pending', 'error', 'invalid', 'conflict'].includes(r.status))) { toast(tt('Wait until every row shows Saved, then submit.', 'সব সারিতে "সংরক্ষিত" দেখানো পর্যন্ত অপেক্ষা করে জমা দিন।'), 'error'); return; }
-    if (!(await confirmDialog({ title: tt('Submit {x}?', '{x} জমা দেবেন?', { x: L(def.name) }), body: tt('You will not be able to change marks after submitting unless the administrator reopens the subject.', 'জমা দেওয়ার পর প্রশাসক আবার না খুললে নম্বর বদলানো যাবে না।'), confirmText: tt('Submit', 'জমা দিন') }))) return;
+    if (!(await confirmDialog({ title: tt('Submit {x}?', '{x} জমা দেবেন?', { x: L(def.name) }), body: isAdminUser ? tt('After submitting, the teacher can no longer change these marks unless you reopen the subject.', 'জমা দেওয়ার পর আপনি আবার না খুললে শিক্ষক এই নম্বর বদলাতে পারবেন না।') : tt('You will not be able to change marks after submitting unless the administrator reopens the subject.', 'জমা দেওয়ার পর প্রশাসক আবার না খুললে নম্বর বদলানো যাবে না।'), confirmText: tt('Submit', 'জমা দিন') }))) return;
     try {
       await submitSubject(me, sid, subjectId, bundle.session.title);
       // After the reload the "Back to examination" button receives focus (see below).
       sessionStorage.setItem('crms.focusBack', `${sid}|${subjectId}`);
       location.reload();
     }
+    catch (e) { toast(friendlyError(e), 'error'); }
+  } });
+  // The administrator may submit on a teacher's behalf (the teacher can then no longer edit) and reopen it again.
+  const reopenBtn = button(tt('Reopen for the teacher', 'শিক্ষকের জন্য আবার খুলুন'), { onClick: async () => {
+    const { promptText } = await import('../ui/components/modal.js');
+    const reason = await promptText({ title: tt('Reopen this subject?', 'বিষয়টি আবার খুলবেন?'), label: tt('Reason (shown to the teacher)', 'কারণ (শিক্ষক দেখবেন)'), confirmText: tt('Reopen', 'আবার খুলুন') });
+    if (!reason) return;
+    const { reopenSubject } = await import('../data/repositories/marks-repository.js');
+    try { await reopenSubject(me, sid, subjectId, reason); toast(tt('Reopened. The teacher can enter marks again.', 'আবার খোলা হয়েছে। শিক্ষক আবার নম্বর দিতে পারবেন।'), 'success'); location.reload(); }
     catch (e) { toast(friendlyError(e), 'error'); }
   } });
   const saveBtn = button(tt('Save now', 'এখনই সংরক্ষণ'), { onClick: async () => { for (const [id, tm] of timers) { clearTimeout(tm); await commit(rows.find((r) => r.e.id === id)); } await flush(); } });
@@ -266,7 +275,7 @@ async function init(sid, subjectId, root) {
   root.replaceChildren(
     pageHeader({ title: L(def.name), subtitle: `${L(bundle.session.title)} · ${tt('{n} students', '{n} জন শিক্ষার্থী', { n: rows.length })}`,
       back: { href: isAdminUser ? `#/admin/sheet?sid=${encodeURIComponent(sid)}` : `#/teacher/exam?sid=${encodeURIComponent(sid)}`, label: tt('Back to examination', 'পরীক্ষায় ফিরে যান') },
-      actions: editable ? [saveBtn, isAdminUser ? null : submitBtn].filter(Boolean) : [] }),
+      actions: [editable ? saveBtn : null, editable && !submitted ? submitBtn : null, isAdminUser && submitted && [ExamState.READY, ExamState.IN_PROGRESS].includes(state) ? reopenBtn : null].filter(Boolean) }),
     ...notices.filter(Boolean),
     editable ? markHelp(def, isAdminUser) : null,
     h('div', { class: 'marks-toolbar' }, saveStatus, h('p', { class: 'muted small' }, tt('Type a number, or AB for absent in one part. Leave empty if not available yet. Enter or ↓ moves down.', 'সংখ্যা লিখুন, কোনো অংশে অনুপস্থিত হলে AB লিখুন। এখনো না পেলে খালি রাখুন। Enter বা ↓ চাপলে নিচে যায়।'))),

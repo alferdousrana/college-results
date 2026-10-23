@@ -36,6 +36,22 @@ function signatureBlock(sig, institution, lang) {
     h('span', {}, pick(sig.label, lang)));
 }
 
+/** The motto/extra heading spread across the very top of the page (left · centre · right). */
+export function mottoRow(institution, s, lang) {
+  const text = pick(institution?.header, lang).trim();
+  if (!text || s.mottoLayout !== 'spread') return null;
+  const words = text.split(/\s+/);
+  return h('div', { class: `pr-motto pr-motto--${Math.min(words.length, 5)}` }, words.map((w) => h('span', {}, w)));
+}
+
+/** Decorative frame made of the institution's name in tiny letters (security-paper style). */
+function nameFrame(institution, lang) {
+  const name = pick(institution?.name, lang) || pick(institution?.name, 'en');
+  if (!name) return null;
+  const text = Array.from({ length: 40 }, () => name).join(' • ');
+  return h('div', { class: 'pr-frame', 'aria-hidden': 'true' }, ['top', 'right', 'bottom', 'left'].map((side) => h('div', { class: `pr-frame__${side}` }, text)));
+}
+
 export function institutionHeader(institution, s, lang, title) {
   const logo = institution?.assets?.logo && s.logoPosition !== 'none' ? h('img', { class: 'pr-logo', src: institution.assets.logo, alt: '' }) : null;
   return h('header', { class: `pr-head pr-head--logo-${s.logoPosition} pr-head--${s.headingStyle}`, style: `text-align:${s.headingAlign}` },
@@ -43,7 +59,7 @@ export function institutionHeader(institution, s, lang, title) {
     h('div', { class: 'pr-head__text' },
       h('h1', { class: 'pr-inst' }, pick(institution?.name, lang)),
       h('p', { class: 'pr-addr' }, pick(institution?.address, lang)),
-      pick(institution?.header, lang) ? h('p', { class: 'pr-headtext' }, pick(institution.header, lang)) : null,
+      pick(institution?.header, lang) && s.mottoLayout !== 'spread' ? h('p', { class: 'pr-headtext' }, pick(institution.header, lang)) : null,
       title ? h('p', { class: 'pr-doc-title' }, title) : null));
 }
 
@@ -110,8 +126,9 @@ export function renderProgressReport(vm, ctx) {
   const P = s.page;
   const watermark = P.watermark && ctx.institution?.assets?.logo ? h('img', { class: 'pr-watermark', src: ctx.institution.assets.logo, alt: '', style: `opacity:${P.watermarkOpacity}` }) : null;
   return h('article', { class: `print-doc print-doc--report border--${s.border.style} ${P.centerContent ? 'pr-centered' : ''}`,
-    style: `${printVars(s, lang)};--page-color:${P.color};--page-margin:${s.marginsMm.progressReport}mm`, lang, dataset: { orientation: s.orientation.progressReport, margin: s.marginsMm.progressReport } },
-    watermark,
+    style: `${printVars(s, lang)};--page-color:${P.color};--page-margin:${s.marginsMm.progressReport}mm;--border-color:${s.border.color ?? '#000'}`, lang, dataset: { orientation: s.orientation.progressReport, margin: s.marginsMm.progressReport } },
+    watermark, s.border.style === 'nameText' ? nameFrame(ctx.institution, lang) : null,
+    mottoRow(ctx.institution, s, lang),
     h('div', { class: 'pr-top' }, institutionHeader(ctx.institution, s, lang, Lb.progressReport), scale),
     h('div', { class: 'pr-body' }, details, marks, summary),
     h('footer', { class: 'pr-sigs' }, s.signatures.filter((x) => x.enabled).map((x) => signatureBlock(x, ctx.institution, lang)),

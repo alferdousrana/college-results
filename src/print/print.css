@@ -100,3 +100,22 @@
   .print-doc--report.pr-centered[data-orientation='landscape'] { min-height: calc(210mm - 2 * var(--page-margin, 10mm) - 1mm) !important; height: auto; }
   .lookup-card-wrap { border: 0 !important; box-shadow: none !important; padding: 0 !important; }
 }
+
+/* Round 9: motto row, border styles, transparent tables over the watermark */
+.pr-motto { display: flex; justify-content: space-between; font-weight: 700; font-size: calc(var(--print-size, 10pt) + 1pt); margin: -3mm 0 2mm; position: relative; z-index: 1; }
+.pr-motto--1 { justify-content: center; }
+.print-doc--sheet .pr-motto { margin: 0 0 2mm; }
+.border--double::after, .border--single::after, .border--thickThin::after, .border--dashed::after, .border--thickThin::before { border-color: var(--border-color, #000) !important; }
+.border--thickThin::after { content: ''; position: absolute; inset: 5mm; border: var(--print-border, 3pt) solid; pointer-events: none; }
+.border--thickThin::before { content: ''; position: absolute; inset: calc(5mm + var(--print-border, 3pt) + 1.2mm); border: 0.75pt solid; pointer-events: none; }
+.border--dashed::after { content: ''; position: absolute; inset: 5mm; border: var(--print-border, 2pt) dashed; pointer-events: none; }
+.pr-frame { position: absolute; inset: 4.5mm; pointer-events: none; z-index: 1; color: var(--border-color, #000); font-size: 5.2pt; line-height: 1; letter-spacing: .02em; }
+.pr-frame > div { position: absolute; white-space: nowrap; overflow: hidden; }
+.pr-frame__top, .pr-frame__bottom { left: 0; right: 0; height: 2.4mm; }
+.pr-frame__top { top: 0; } .pr-frame__bottom { bottom: 0; }
+.pr-frame__left, .pr-frame__right { top: 2.4mm; bottom: 2.4mm; width: 2.4mm; writing-mode: vertical-rl; }
+.pr-frame__left { left: 0; transform: rotate(180deg); } .pr-frame__right { right: 0; }
+.print-doc--report th, .print-doc--report td { background: transparent; }
+@media print { .border--thickThin::after, .border--dashed::after, .border--thickThin::before { inset: 0; } .border--thickThin::before { inset: calc(var(--print-border, 3pt) + 1.2mm); } .pr-frame { inset: 0; } }
+
+@media print { .ms-viewer .print-doc { zoom: 1 !important; } .ms-viewer { overflow: visible !important; padding: 0 !important; } }

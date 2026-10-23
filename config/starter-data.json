@@ -1,5 +1,5 @@
 {
- "$comment": "Starter data for Shirjug Azimunnesa Girls' School & College, taken from the college's result sheets. Mark distributions and pass marks are STARTING VALUES — check every subject before the first examination.",
+ "$comment": "Starter data for Shirjug Azimunnesa Girls' School & College, taken from the college's result sheets. Mark distributions and pass marks are STARTING VALUES — check every subject before the first examination. Subject codes are from the board's HSC 2026 routine. Paper scheme: Class Eleven examines 1st + 2nd paper together, Class Twelve the 2nd paper only (change per subject in Subjects).",
  "institution": {
   "name": {
    "en": "Shirjug Azimunnesa Girls' School and College",
@@ -137,7 +137,7 @@
     "en": "Bangla 1st Paper",
     "bn": "বাংলা ১ম পত্র"
    },
-   "code": null,
+   "code": "101",
    "order": 1,
    "classIds": [
     "class-11",
@@ -198,7 +198,7 @@
     "en": "Bangla 2nd Paper",
     "bn": "বাংলা ২য় পত্র"
    },
-   "code": null,
+   "code": "102",
    "order": 2,
    "classIds": [
     "class-11",
@@ -259,7 +259,7 @@
     "en": "English 1st Paper",
     "bn": "ইংরেজি ১ম পত্র"
    },
-   "code": null,
+   "code": "107",
    "order": 3,
    "classIds": [
     "class-11",
@@ -309,7 +309,7 @@
     "en": "English 2nd Paper",
     "bn": "ইংরেজি ২য় পত্র"
    },
-   "code": null,
+   "code": "108",
    "order": 4,
    "classIds": [
     "class-11",
@@ -359,7 +359,7 @@
     "en": "Information & Communication Technology",
     "bn": "তথ্য ও যোগাযোগ প্রযুক্তি"
    },
-   "code": null,
+   "code": "275",
    "order": 5,
    "classIds": [
     "class-11",
@@ -477,7 +477,15 @@
    "active": true,
    "optionalEligible": false,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "174",
+    "second": "175"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "chemistry",
@@ -538,7 +546,15 @@
    "active": true,
    "optionalEligible": false,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "176",
+    "second": "177"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "biology",
@@ -599,7 +615,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "178",
+    "second": "179"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "higher-math",
@@ -660,7 +684,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "265",
+    "second": "266"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "economics",
@@ -710,7 +742,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "109",
+    "second": "110"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "civics",
@@ -760,7 +800,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "269",
+    "second": "270"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "sociology",
@@ -812,7 +860,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "117",
+    "second": "118"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "social-work",
@@ -864,7 +920,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "271",
+    "second": "272"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "islamic-history",
@@ -916,7 +980,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "267",
+    "second": "268"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "history",
@@ -968,7 +1040,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "304",
+    "second": "305"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "logic",
@@ -1018,7 +1098,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "121",
+    "second": "122"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "business-org",
@@ -1068,7 +1156,15 @@
    "active": true,
    "optionalEligible": false,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "277",
+    "second": "278"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "accounting",
@@ -1118,7 +1214,15 @@
    "active": true,
    "optionalEligible": false,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "253",
+    "second": "254"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "production-marketing",
@@ -1168,7 +1272,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "286",
+    "second": "287"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "finance-banking",
@@ -1218,7 +1330,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "292",
+    "second": "293"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "geography",
@@ -1283,7 +1403,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "125",
+    "second": "126"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "psychology",
@@ -1348,7 +1476,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "123",
+    "second": "124"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "agriculture",
@@ -1415,7 +1551,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "239",
+    "second": "240"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "islamic-studies",
@@ -1467,7 +1611,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "249",
+    "second": "250"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "home-science",
@@ -1532,7 +1684,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "273",
+    "second": "274"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   },
   {
    "id": "sanskrit",
@@ -1584,7 +1744,15 @@
    "active": true,
    "optionalEligible": true,
    "countsTowardGpa": true,
-   "countsTowardTotal": true
+   "countsTowardTotal": true,
+   "papers": {
+    "first": "137",
+    "second": "138"
+   },
+   "paperScheme": {
+    "class-11": "combined",
+    "class-12": "second"
+   }
   }
  ]
 }

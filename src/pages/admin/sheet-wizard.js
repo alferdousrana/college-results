@@ -14,6 +14,7 @@ import { navigate } from '../../app/router.js';
 import { actor, byId, friendlyError, nameOf } from '../_shared.js';
 import { validateForSharing, checkStudentChoices, subjectRole } from '../../domain/session-calc.js';
 import { ExamState } from '../../domain/exam-lifecycle.js';
+import { subjectLabelForClass } from '../../domain/paper-scheme.js';
 import { shareFlow } from './share-flow.js';
 
 export const title = 'dash.createSheet';
@@ -306,7 +307,8 @@ async function init(sid, body) {
       }),
       subjects: subjectIds.map((id) => {
         const s = cats.subjects.find((x) => x.id === id);
-        return { subjectId: id, definition: { name: s.name, code: s.code ?? null, order: s.order ?? null, combine: s.combine?.key ? s.combine : null, components: s.components ?? [], passMarks: s.passMarks ?? null, countsTowardGpa: s.countsTowardGpa !== false, countsTowardTotal: s.countsTowardTotal !== false },
+        const lbl = subjectLabelForClass(s, d.classId); // 1st/2nd paper scheme of this class
+        return { subjectId: id, definition: { name: lbl.name, code: lbl.code, paperScheme: lbl.scheme, order: s.order ?? null, combine: s.combine?.key ? s.combine : null, components: s.components ?? [], passMarks: s.passMarks ?? null, countsTowardGpa: s.countsTowardGpa !== false, countsTowardTotal: s.countsTowardTotal !== false },
           teacherIds: st.teachers[id] ?? [], teacherNames: Object.fromEntries((st.teachers[id] ?? []).map((x) => [x, tById[x]?.displayName ?? x])) };
       }),
       roster: [...st.roster.values()].filter((r) => r.include && st.groupIds.includes(r.groupId)),

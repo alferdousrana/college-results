@@ -265,3 +265,23 @@ progress { accent-color: var(--c-brand); width: 100px; height: 8px; vertical-ali
 .site-footer a { color: var(--c-brand); font-weight: 600; }
 .lookup-output { text-align: left; } .input--color { width: 64px; height: 40px; padding: 2px; }
 .lookup-card-wrap > p { margin-left: auto; margin-right: auto; }
+
+/* Teacher home */
+.teacher-status { display: flex; gap: var(--space-4); align-items: center; padding: var(--space-4) var(--space-5); border-radius: var(--radius-m); background: var(--c-info-soft); border: 1px solid var(--c-line); margin-bottom: var(--space-5); }
+.teacher-status.is-done { background: var(--c-good-soft); }
+.teacher-status h2 { margin: 0 0 var(--space-1); font-size: var(--step-1); } .teacher-status p { margin: 0; }
+.teacher-status__icon { flex: none; width: 52px; height: 52px; border-radius: 50%; display: grid; place-items: center; font-size: 1.6rem; font-weight: 700; color: #fff; background: var(--c-info); }
+.teacher-status.is-done .teacher-status__icon { background: var(--c-good); }
+.subject-tiles { list-style: none; padding: 0; margin: 0 0 var(--space-5); display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: var(--space-3); }
+.subject-tile { display: flex; flex-direction: column; gap: 4px; padding: var(--space-4); border-radius: var(--radius-m); background: var(--c-surface); border: 1px solid var(--c-line); border-top: 6px solid var(--tile); box-shadow: var(--shadow-1); }
+.subject-tile__name { font-weight: 700; font-size: var(--step-1); color: var(--tile); }
+[data-theme='dark'] .subject-tile__name { color: var(--c-ink); }
+.subject-tile__code { font-size: var(--step--1); font-weight: 600; }
+.subject-tile__meta { font-size: var(--step--1); color: var(--c-ink-2); }
+
+/* Marksheet viewer: whole page fits the screen; zoom in to read details */
+.ms-viewer { overflow-x: hidden; padding: 4px; }
+.ms-viewer.is-zoomed { overflow-x: auto; }
+.ms-viewer .print-doc { margin: 0 auto; }
+.ms-zoom { display: inline-flex; align-items: center; gap: 4px; }
+.ms-zoom__value { min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; font-size: var(--step--1); }

@@ -10,7 +10,7 @@
 import { h } from '../core/dom.js';
 import { PRINT_LABELS, pnum, pick } from './labels.js';
 import { withPrintDefaults, printVars } from './print-settings.js';
-import { institutionHeader, signatureBlock } from './progress-report.js';
+import { institutionHeader, signatureBlock, mottoRow } from './progress-report.js';
 
 /** Builds the column layout: combined subjects, then single subjects grouped by shared column key. */
 export function buildSheetColumns(subjects, subjectColumns = {}) {
@@ -79,6 +79,7 @@ export function renderResultSheet({ vms, subjects, exam, groupLabel = null, subj
   });
 
   return h('article', { class: 'print-doc print-doc--sheet', lang, style: printVars(s, lang), dataset: { orientation: s.orientation.resultSheet, margin: s.marginsMm.resultSheet, paper: s.sheet.paper } },
+    mottoRow(ctx.institution, s, lang),
     institutionHeader(ctx.institution, s, lang, `${pick(exam.title, lang)} — ${Lb.resultSheet}`),
     h('p', { class: 'rs-sub' }, [pick(exam.classLabel, lang), groupLabel ? `${Lb.group}: ${pick(groupLabel, lang)}` : null].filter(Boolean).join(' · ')),
     h('div', { class: 'rs-scroll' }, h('table', { class: 'rs-table' }, h('thead', {}, head1, head2), h('tbody', {}, body))),

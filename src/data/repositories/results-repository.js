@@ -162,7 +162,8 @@ export async function withdrawPublicLookup(actor, sid) {
 
 /**
  * Re-applies the CURRENT publication privacy settings (which student details are public, verification)
- * to an already published sheet. Marks, grades, positions and the frozen print snapshot are unchanged.
+ * and the current print design (institution details, logo, signatures, border, fonts) to an already
+ * published sheet. Marks, grades, positions and the grading snapshot are unchanged.
  */
 export async function refreshPublicLookup(actor, sid) {
   const b = await getBackend();
@@ -189,7 +190,13 @@ export async function refreshPublicLookup(actor, sid) {
     batch.set(`${C.PUBLIC_RESULTS}/${hash}`, { publicId: session.publicId, version: session.publishedVersion, vm, publishedAt: serverTime() });
   }
   for (const old of new Set([...(session.publicIds ?? []), ...(previous?.publicIds ?? [])])) if (!publicIds.includes(old)) batch.delete(`${C.PUBLIC_RESULTS}/${old}`);
-  batch.update(`${C.PUBLIC_INDEX}/${session.publicId}`, { requiresVerifier: Boolean(verifierField), verifierLabel: verifierField ? pub.verifierLabel : null });
+  // The design (logo, signatures, motto, border, fonts) is refreshed too; marks, grades and positions are not.
+  const [institution, printSettings] = await Promise.all([getInstitution({ fresh: true }), getSetting(SETTINGS_DOCS.PRINT, { fresh: true })]);
+  batch.update(`${C.PUBLIC_INDEX}/${session.publicId}`, {
+    requiresVerifier: Boolean(verifierField), verifierLabel: verifierField ? pub.verifierLabel : null,
+    institution: { name: institution.name, address: institution.address, header: institution.header, footer: institution.footer, signatories: institution.signatories, assets: institution.assets },
+    print: printSettings,
+  });
   batch.update(paths.session(sid), { publicIds, updatedAt: serverTime() });
   addAudit(b, batch, { action: 'public_lookup_updated', actor, targetPath: paths.session(sid), after: { students: publicIds.length, fields: pub.publicStudentFields ?? [], verifier: verifierField } });
   await batch.commit();

@@ -36,7 +36,7 @@ export async function applyStarterData(actor, data, plan, { updateMatching = tru
   const idMap = Object.fromEntries(plan.map(({ item, match }) => [item.id, match?.id ?? item.id]));
   const mapIds = (list) => [...new Set((list ?? []).map((x) => idMap[x] ?? x))];
   const mapKeys = (obj) => Object.fromEntries(Object.entries(obj ?? {}).map(([k, v]) => [idMap[k] ?? k, v]));
-  const remap = (coll, f) => (coll === C.SUBJECTS ? { ...f, groupIds: mapIds(f.groupIds), classIds: mapIds(f.classIds), groupRoles: mapKeys(f.groupRoles), sheetColumns: mapKeys(f.sheetColumns) }
+  const remap = (coll, f) => (coll === C.SUBJECTS ? { ...f, groupIds: mapIds(f.groupIds), classIds: mapIds(f.classIds), groupRoles: mapKeys(f.groupRoles), sheetColumns: mapKeys(f.sheetColumns), ...(f.paperScheme ? { paperScheme: mapKeys(f.paperScheme) } : {}) }
     : coll === C.CLASSES ? { ...f, groupIds: mapIds(f.groupIds) } : f);
   for (const { coll, item, match } of plan) {
     const { id, ...raw } = item;
@@ -45,7 +45,8 @@ export async function applyStarterData(actor, data, plan, { updateMatching = tru
     if (!updateMatching) { report.skipped++; continue; }
     // Update only structural settings; never names the college typed, never mark components.
     const patch = coll === C.SUBJECTS
-      ? { groupRoles: fields.groupRoles, sheetColumns: fields.sheetColumns, combine: fields.combine, groupIds: fields.groupIds, classIds: fields.classIds, optionalEligible: fields.optionalEligible }
+      ? { groupRoles: fields.groupRoles, sheetColumns: fields.sheetColumns, combine: fields.combine, groupIds: fields.groupIds, classIds: fields.classIds, optionalEligible: fields.optionalEligible,
+          ...(fields.papers ? { papers: fields.papers, paperScheme: fields.paperScheme } : {}), ...(fields.code && !match.code ? { code: fields.code } : {}) }
       : coll === C.GROUPS ? { rules: fields.rules } : coll === C.CLASSES ? { groupIds: fields.groupIds } : null;
     if (patch) { batch.set(`${coll}/${match.id}`, { ...patch, updatedAt: serverTime() }, { merge: true }); report.updated++; } else report.skipped++;
   }
@@ -78,8 +79,8 @@ export async function repairReferences(actor, idMap = {}) {
   const batch = b.batch();
   let n = 0;
   for (const s of cats.subjects) {
-    const next = { groupIds: fix(s.groupIds, groupIds), classIds: fix(s.classIds, classIds), groupRoles: fixKeys(s.groupRoles, groupIds), sheetColumns: fixKeys(s.sheetColumns, groupIds) };
-    if (JSON.stringify([s.groupIds ?? [], s.classIds ?? [], s.groupRoles ?? {}, s.sheetColumns ?? {}]) !== JSON.stringify([next.groupIds, next.classIds, next.groupRoles, next.sheetColumns])) {
+    const next = { groupIds: fix(s.groupIds, groupIds), classIds: fix(s.classIds, classIds), groupRoles: fixKeys(s.groupRoles, groupIds), sheetColumns: fixKeys(s.sheetColumns, groupIds), ...(s.paperScheme ? { paperScheme: fixKeys(s.paperScheme, classIds) } : {}) };
+    if (JSON.stringify([s.groupIds ?? [], s.classIds ?? [], s.groupRoles ?? {}, s.sheetColumns ?? {}, s.paperScheme ?? null]) !== JSON.stringify([next.groupIds, next.classIds, next.groupRoles, next.sheetColumns, next.paperScheme ?? null])) {
       batch.update(`${C.SUBJECTS}/${s.id}`, { ...next, updatedAt: serverTime() }); n++;
     }
   }

@@ -32,7 +32,7 @@ export function render() {
       toolbar: [button(tt('Add subject', 'বিষয় যোগ'), { kind: 'primary', size: 'sm', icon: 'plus', onClick: () => edit(null, cats, paint) })],
       columns: [
         { key: 'name', label: tt('Subject', 'বিষয়'), sort: (r) => L(r.name), render: (r) => h('div', {}, h('strong', {}, L(r.name, 'en')), h('div', { class: 'muted small' }, L(r.name, 'bn'))) },
-        { key: 'code', label: tt('Code', 'কোড') },
+        { key: 'code', label: tt('Code', 'কোড'), render: (r) => (r.papers ? [r.papers.first, r.papers.second].filter(Boolean).join(' / ') : r.code ?? '') },
         { key: 'comp', label: tt('Components', 'অংশ'), render: (r) => (r.components ?? []).filter((c) => c.enabled !== false).map((c) => `${c.label} ${c.maxMarks}${c.passMarks != null ? `/${c.passMarks}` : ''}`).join(' · ') },
         { key: 'cls', label: tt('Classes', 'শ্রেণি'), render: (r) => (r.classIds ?? []).map((id) => L(cats.classes.find((x) => x.id === id)?.name) || id).join(', ') || tt('All', 'সব') },
         { key: 'grp', label: tt('Groups', 'বিভাগ'), render: (r) => (r.groupIds ?? []).map((id) => L(cats.groups.find((x) => x.id === id)?.name) || id).join(', ') || tt('All', 'সব') },
@@ -83,6 +83,18 @@ function edit(subject, cats, refresh) {
     h('thead', {}, h('tr', {}, h('th', {}, tt('Group', 'বিভাগ')), h('th', {}, tt('Role', 'ভূমিকা')), h('th', {}, tt('Shared column on full sheet', 'পূর্ণ শিটে যৌথ কলাম')))),
     h('tbody', {}, roleRows.map((r) => r.el)))),
     h('p', { class: 'muted small' }, tt('Only groups ticked above apply. To print alternatives in one column (e.g. Sociology / Social Work), give them the same shared column code, such as soc.', 'শুধু উপরে বাছা বিভাগগুলো প্রযোজ্য। বিকল্প বিষয় এক কলামে ছাপাতে (যেমন সমাজবিজ্ঞান / সমাজকর্ম) একই যৌথ কলাম কোড দিন, যেমন soc।')));
+  // 1st / 2nd paper codes and what each class examines (same teacher, one catalogue entry).
+  const p1 = field({ label: tt('1st paper code', '১ম পত্রের কোড'), name: 'sp1', value: subject?.papers?.first ?? '', hint: tt('Leave both empty if the subject has no papers.', 'বিষয়ের পত্র না থাকলে দুটোই খালি রাখুন।') });
+  const p2 = field({ label: tt('2nd paper code', '২য় পত্রের কোড'), name: 'sp2', value: subject?.papers?.second ?? '' });
+  const schemeRows = cats.classes.map((c) => {
+    const sel = h('select', { class: 'input input--sm', 'aria-label': `${L(c.name)} — ${tt('papers', 'পত্র')}` },
+      [['combined', tt('1st + 2nd paper together', '১ম + ২য় পত্র একসাথে')], ['first', tt('1st paper only', 'শুধু ১ম পত্র')], ['second', tt('2nd paper only', 'শুধু ২য় পত্র')]]
+        .map(([v, l]) => h('option', { value: v, selected: (subject?.paperScheme?.[c.id] ?? 'combined') === v }, l)));
+    return { c, sel, el: h('label', { class: 'field field--inline' }, h('span', { class: 'field__label' }, L(c.name)), sel) };
+  });
+  const papersBox = h('div', {}, h('div', { class: 'form-grid' }, p1.el, p2.el), h('div', { class: 'row-actions' }, schemeRows.map((r) => r.el)),
+    h('p', { class: 'muted small' }, tt('One exam can cover both papers (e.g. Class Eleven, 100 marks) or one paper (e.g. Class Twelve: 2nd paper). The marks below are the marks of that one exam. Bangla and English, whose papers are examined separately, are two linked subjects instead (see Combined paper).',
+      'একটি পরীক্ষায় দুই পত্র একসাথে (যেমন একাদশ, ১০০ নম্বর) বা একটি পত্র (যেমন দ্বাদশ: ২য় পত্র) হতে পারে। নিচের নম্বর সেই একটি পরীক্ষার। বাংলা ও ইংরেজির পত্র আলাদা পরীক্ষা হয়, তাই সেগুলো দুটি যুক্ত বিষয় (যৌথ পত্র দেখুন)।')));
   const compBox = h('div');
   const errBox = h('div');
   const paintComps = () => {
@@ -111,6 +123,7 @@ function edit(subject, cats, refresh) {
   openModal({ title: subject ? tt('Edit subject', 'বিষয় সম্পাদনা') : tt('Add subject', 'বিষয় যোগ'), size: 'xl',
     content: h('div', {}, h('div', { class: 'form-grid' }, nameEn.el, nameBn.el, code.el, pass.el), classes.el, groups.el, h('div', { class: 'form-grid' }, active.el, optional.el, gpa.el, total.el),
       h('h3', { class: 'form-section' }, tt('Role in each group', 'প্রতিটি বিভাগে ভূমিকা')), rolesBox,
+      h('h3', { class: 'form-section' }, tt('1st and 2nd paper', '১ম ও ২য় পত্র')), papersBox,
       h('h3', { class: 'form-section' }, tt('Combined paper', 'যৌথ পত্র')), combOn.el, combBox,
       h('h3', { class: 'form-section' }, tt('Mark components', 'নম্বরের অংশ')), compBox, errBox),
     actions: [{ label: t('common.cancel'), onClick: () => true }, { label: t('common.save'), kind: 'primary', onClick: async () => {
@@ -119,6 +132,8 @@ function edit(subject, cats, refresh) {
         active: active.value, optionalEligible: optional.value || roleRows.some((r) => r.role.value !== 'compulsory'), countsTowardGpa: gpa.value, countsTowardTotal: total.value, components: comps, order: subject?.order ?? cats.subjects.length + 1,
         groupRoles: Object.fromEntries(roleRows.map((r) => [r.g.id, r.role.value])),
         sheetColumns: Object.fromEntries(roleRows.filter((r) => r.col.value.trim()).map((r) => [r.g.id, r.col.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '')])),
+        papers: p1.value || p2.value ? { first: p1.value || null, second: p2.value || null } : null,
+        paperScheme: p1.value || p2.value ? Object.fromEntries(schemeRows.map((r) => [r.c.id, r.sel.value])) : null,
         combine: combOn.value && combKey.value.trim() ? { key: combKey.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, ''), name: { en: combEn.value || nameEn.value, bn: combBn.value || null }, paper: combPaper.value } : null };
       const errors = [...(nameEn.value ? [] : [tt('English name is required.', 'ইংরেজি নাম আবশ্যক।')]), ...validateSubjectDefinition({ id: subject?.id ?? 'new', ...data, name: data.name.en })];
       errBox.replaceChildren(errors.length ? h('ul', { class: 'notice notice--bad' }, errors.map((e) => h('li', {}, e))) : '');

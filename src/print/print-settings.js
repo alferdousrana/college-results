@@ -11,7 +11,8 @@ export const DEFAULT_PRINT_SETTINGS = Object.freeze({
   headingAlign: 'center',
   headingStyle: 'bold',                 // 'bold' | 'boldUnderline' | 'caps'
   logoPosition: 'left',                 // 'left' | 'center' | 'right' | 'none'
-  border: { style: 'double', widthPt: 3 },
+  border: { style: 'double', widthPt: 3, color: '#000000' },   // style: none | single | double | thickThin | dashed | nameText
+  mottoLayout: 'spread',                // the extra heading line (e.g. শিক্ষা শান্তি প্রগতি): 'spread' across the top, or 'line' under the address
   // Individual marksheet page: background colour and a large faint logo in the middle.
   page: { color: '#ffffff', watermark: true, watermarkOpacity: 0.07, centerContent: true },
   table: { cellPaddingPt: 2, lineWidthPt: 0.75 },

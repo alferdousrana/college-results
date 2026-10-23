@@ -66,3 +66,15 @@ describe('group subject choices', () => {
     expect(studentSubjectIds(b, { groupId: 'science', subjectIds: ['bio'], optionalSubjectId: 'agri' })).toEqual(['b1', 'phy', 'bio', 'agri']);
   });
 });
+
+import { subjectLabelForClass } from '../../src/domain/paper-scheme.js';
+describe('paper schemes', () => {
+  const physics = { name: { en: 'Physics', bn: 'পদার্থবিজ্ঞান' }, papers: { first: '174', second: '175' }, paperScheme: { 'class-11': 'combined', 'class-12': 'second' } };
+  it('Class Eleven examines both papers together; Class Twelve the 2nd paper', () => {
+    expect(subjectLabelForClass(physics, 'class-11')).toMatchObject({ name: { en: 'Physics' }, code: '174, 175', scheme: 'combined' });
+    expect(subjectLabelForClass(physics, 'class-12')).toMatchObject({ name: { en: 'Physics 2nd Paper', bn: 'পদার্থবিজ্ঞান ২য় পত্র' }, code: '175' });
+  });
+  it('subjects without papers keep their own name and code', () => {
+    expect(subjectLabelForClass({ name: { en: 'ICT' }, code: '275' }, 'class-12')).toMatchObject({ name: { en: 'ICT' }, code: '275', scheme: null });
+  });
+});

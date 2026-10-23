@@ -60,6 +60,7 @@ function lookupForm() {
       output.replaceChildren(loadingState());
       const found = await repo.fetchPublicResult(eS.value, r, normalizeDigits(verifier.input.value));
       output.replaceChildren(found ? await resultView(found) : errorState({ message: t('lookup.notFound') }));
+      output.scrollIntoView({ behavior: 'smooth', block: 'start' });
       submit.disabled = false;
     });
     wrap.replaceChildren(form, output);
@@ -73,13 +74,34 @@ async function resultView({ exam, result }) {
   await ensurePrintFonts();
   const print = withPrintDefaults(exam.print);
   let lang = currentLang() === 'bn' ? 'bn' : print.language;
-  const area = h('div', { class: 'print-area' });
-  const paint = () => area.replaceChildren(renderProgressReport(result.vm, { institution: exam.institution, print, scale: exam.scale, lang }));
+  const area = h('div', { class: 'print-area ms-viewer' });
+  // Fit the whole A4 page to the screen width (no sideways scrolling); +/− to zoom.
+  let zoom = null; // null = fit to width
+  const zoomLabel = h('span', { class: 'ms-zoom__value', 'aria-live': 'polite' });
+  const applyZoom = () => {
+    const doc = area.querySelector('.print-doc');
+    if (!doc) return;
+    doc.style.zoom = '1';
+    const fit = Math.min(1, (area.clientWidth - 8) / doc.offsetWidth);
+    const z = zoom ?? fit;
+    doc.style.zoom = String(z);
+    area.classList.toggle('is-zoomed', z > fit + 0.01);
+    zoomLabel.textContent = `${Math.round(z * 100)}%`;
+  };
+  const paint = () => { area.replaceChildren(renderProgressReport(result.vm, { institution: exam.institution, print, scale: exam.scale, lang })); requestAnimationFrame(applyZoom); };
   paint();
+  const onResize = () => { if (zoom === null) applyZoom(); };
+  window.addEventListener('resize', onResize);
+  const step = (d) => { const cur = Number(area.querySelector('.print-doc')?.style.zoom || 1); zoom = Math.max(0.3, Math.min(2, Math.round((cur + d) * 10) / 10)); applyZoom(); };
+  const zoomBar = h('div', { class: 'ms-zoom', role: 'group', 'aria-label': tt('Zoom', 'জুম') },
+    h('button', { class: 'btn btn--ghost btn--sm', type: 'button', 'aria-label': tt('Zoom out', 'ছোট করুন'), onclick: () => step(-0.1) }, '−'),
+    zoomLabel,
+    h('button', { class: 'btn btn--ghost btn--sm', type: 'button', 'aria-label': tt('Zoom in', 'বড় করুন'), onclick: () => step(0.1) }, '+'),
+    h('button', { class: 'btn btn--ghost btn--sm', type: 'button', onclick: () => { zoom = null; applyZoom(); } }, tt('Fit to screen', 'স্ক্রিনে আঁটান')));
   const langSel = h('select', { class: 'input input--sm', 'aria-label': tt('Marksheet language', 'মার্কশিটের ভাষা'), onchange: (e) => { lang = e.target.value; paint(); } },
     [['en', 'English'], ['bn', 'বাংলা']].map(([v, l]) => h('option', { value: v, selected: v === lang }, l)));
   return h('div', {},
-    h('div', { class: 'row-actions no-print lookup-actions' }, langSel,
+    h('div', { class: 'row-actions no-print lookup-actions' }, langSel, zoomBar,
       isEnabled('progress_report_print') ? h('button', { class: 'btn btn--primary', type: 'button', onclick: () => printContainer(area, { families: fontFamiliesFor(print), pageNumbers: false }) }, svgIcon('print'), h('span', {}, t('lookup.print'))) : null),
     area);
 }
