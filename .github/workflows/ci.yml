@@ -9,6 +9,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 20, cache: npm }
+      - name: Supply-chain guard (stops the build if the repository was tampered with)
+        run: node scripts/guard.mjs
       - run: npm ci
       - run: npm run validate:flags
       - run: npm test
