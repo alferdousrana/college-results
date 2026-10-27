@@ -11,3 +11,6 @@ service-account*.json
 *-adminsdk-*.json
 scripts/node_modules/
 tests/e2e/out/
+branch_structure.json
+temp_auto_push.bat
+temp_interactive_push.bat
