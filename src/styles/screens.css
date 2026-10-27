@@ -310,3 +310,6 @@ progress { accent-color: var(--c-brand); width: 100px; height: 8px; vertical-ali
 .deadline-timer__sub { margin: var(--space-2) 0 0; font-size: var(--step--1); color: var(--c-ink-2); }
 @media (max-width: 600px) { .deadline-timer { width: 100%; min-width: 0; } .deadline-timer__num { font-size: 1.7rem; } }
 .rt-sentence { max-width: 760px; margin-bottom: var(--space-3); }
+
+.ac-pick { margin: var(--space-3) 0; padding: var(--space-3); border: 1px solid var(--c-line); border-radius: var(--radius-m); background: var(--c-surface); }
+.ac-pick__list { list-style: none; padding: 0; margin: var(--space-2) 0 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 4px; max-height: 320px; overflow-y: auto; }

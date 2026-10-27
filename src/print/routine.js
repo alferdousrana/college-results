@@ -101,9 +101,17 @@ export function renderDuties(routine, columns, people, ctx) {
     return h('tr', {},
       h('td', { class: 'rt-date' }, h('strong', {}, date), h('div', {}, day)),
       h('td', { class: 'dt-subjects' }, subjectsOnDay(routine, d, columns).map((t) => h('div', {}, t))),
-      h('td', { class: 'dt-people' }, teachers.map((n, i) => h('div', {}, `${bnDigits(i + 1)}) ${prefix ? `${prefix} ` : ''}${n}`)),
-        staff.length ? h('div', { class: 'dt-staff' }, staff.map((n) => h('div', {}, `❖ ${n}`))) : null),
-      h('td', { class: 'dt-sign' }, teachers.map(() => h('div', { class: 'dt-sign__box' }))));
+      // Names and signature boxes are built line by line so each box sits beside its name.
+      h('td', { class: 'dt-people' },
+        teachers.length ? h('div', { class: 'dt-line dt-line--head' }, 'শিক্ষক মণ্ডলী') : null,
+        teachers.map((n, i) => h('div', { class: 'dt-line' }, `${bnDigits(i + 1)}) ${prefix ? `${prefix} ` : ''}${n}`)),
+        staff.length ? h('div', { class: 'dt-line dt-line--head' }, 'কর্মচারীগণ') : null,
+        staff.map((n) => h('div', { class: 'dt-line dt-line--staff' }, `❖ ${n}`))),
+      h('td', { class: 'dt-sign' },
+        teachers.length ? h('div', { class: 'dt-line dt-line--head' }) : null,
+        teachers.map(() => h('div', { class: 'dt-line' }, h('div', { class: 'dt-sign__box' }))),
+        staff.length ? h('div', { class: 'dt-line dt-line--head' }) : null,
+        staff.map(() => h('div', { class: 'dt-line' }, h('div', { class: 'dt-sign__box' })))));
   });
   const committee = (routine.committee ?? []).filter((m) => m.name);
   return h('article', { class: 'print-doc print-doc--routine print-doc--duties', lang: 'bn', style: printVars(s, 'bn'), dataset: { orientation: 'portrait', margin: 10 } },
@@ -131,29 +139,30 @@ export function renderAdmitCards(students, { examTitle, sessionLabel, classLabel
       h('p', { class: 'ac-text' }, text),
       h('div', { class: 'ac-sign' }, sig ? h('img', { src: sig, alt: '' }) : h('span', { class: 'ac-sign__space' }), h('span', {}, 'অধ্যক্ষ'))));
   const pages = [];
-  for (let i = 0; i < students.length; i += 4) pages.push(h('article', { class: 'print-doc print-doc--cards print-doc--admit', lang: 'bn', dataset: { orientation: 'landscape', margin: 8 } }, h('div', { class: 'ac-grid' }, students.slice(i, i + 4).map(card))));
+  for (let i = 0; i < students.length; i += 4) pages.push(h('article', { class: 'print-doc print-doc--cards print-doc--admit', lang: 'bn', dataset: { orientation: 'landscape', margin: 12 } }, h('div', { class: 'ac-grid' }, students.slice(i, i + 4).map(card))));
   return pages;
 }
 
 /** Seat plan cards: 9 or 12 (or any number) per A4 page; fields chosen by the administrator. */
-export function renderSeatCards(students, { perPage = 12, fields = ['exam', 'class', 'roll', 'name'], examTitle, classLabel, sessionLabel }, ctx) {
+export function renderSeatCards(students, { perPage = 8, fields = ['exam', 'title', 'class', 'roll'], examTitle, classLabel, sessionLabel }, ctx) {
   const inst = ctx.institution ?? {};
-  const cols = 3;
+  const cols = perPage <= 8 ? 2 : 3;
   const rows = Math.ceil(perPage / cols);
   const line = (key, st) => ({
     institution: h('p', { class: 'sc-inst' }, pick(inst.name, 'bn')),
     exam: h('p', { class: 'sc-exam' }, examTitle),
-    class: h('p', {}, 'শ্রেণি : ', h('strong', {}, classLabel)),
+    title: h('p', { class: 'sc-title' }, 'পরীক্ষার্থীর আসন'),
+    class: h('p', { class: 'sc-class' }, classLabel),
     group: h('p', {}, 'বিভাগ : ', h('strong', {}, st.groupName)),
     session: h('p', {}, 'শিক্ষাবর্ষ : ', h('strong', {}, bnDigits(sessionLabel))),
-    roll: h('p', { class: 'sc-roll' }, 'রোল : ', h('strong', {}, bnDigits(st.roll))),
+    roll: h('p', { class: 'sc-roll' }, `রোল নং - ${bnDigits(st.roll)}`),
     name: h('p', { class: 'sc-name' }, st.name),
     fourth: st.fourthName ? h('p', {}, '৪র্থ বিষয় : ', st.fourthName) : null,
   }[key] ?? null);
   const pages = [];
   for (let i = 0; i < students.length; i += perPage) {
-    pages.push(h('article', { class: 'print-doc print-doc--cards', lang: 'bn', dataset: { orientation: 'portrait', margin: 6 } },
-      h('div', { class: 'sc-grid', style: `grid-template-columns: repeat(${cols}, 1fr); grid-template-rows: repeat(${rows}, 1fr)` },
+    pages.push(h('article', { class: 'print-doc print-doc--cards print-doc--seat', lang: 'bn', dataset: { orientation: 'portrait', margin: 10 } },
+      h('div', { class: `sc-grid sc-grid--${cols}`, style: `grid-template-columns: repeat(${cols}, 1fr); grid-template-rows: repeat(${rows}, 1fr)` },
         students.slice(i, i + perPage).map((st) => h('div', { class: 'sc-card' }, fields.map((f) => line(f, st)))))));
   }
   return pages;

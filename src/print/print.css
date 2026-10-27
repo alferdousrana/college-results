@@ -184,3 +184,17 @@
 .print-doc--admit .ac-row, .print-doc--admit .ac-text, .print-doc--admit .ac-addr, .print-doc--admit .ac-exam { font-size: 11pt; }
 .dt-committee ol { list-style: none; padding-left: 4mm; }
 @media print { .print-doc--admit .ac-grid { height: calc(210mm - 16mm - 2mm); } }
+
+/* Round 13: duty lines, admit margins, seat cards like the college's */
+.dt-line { height: 6.5mm; display: flex; align-items: center; }
+.dt-line--head { font-weight: 700; text-decoration: underline; }
+.dt-line--staff { padding-left: 4mm; }
+.dt-sign .dt-line { justify-content: stretch; } .dt-sign .dt-sign__box { width: 100%; height: 5.2mm; margin: 0; }
+.dt-staff { display: none; }
+.print-doc--admit { padding: 6mm !important; }
+.print-doc--admit .ac-grid { height: 178mm; gap: 10mm 12mm; }
+.print-doc--seat .sc-grid { height: 270mm; gap: 12mm 14mm; padding: 4mm; }
+.print-doc--seat .sc-card { border: 3pt double #000; border-radius: 0; gap: 2.5mm; }
+.sc-title { font-size: 15pt; font-weight: 600; } .print-doc--seat .sc-exam { font-size: 13pt; }
+.sc-class { font-size: 11pt; } .print-doc--seat .sc-roll { font-size: 13pt; }
+@media print { .print-doc--admit .ac-grid { height: calc(210mm - 24mm - 12mm - 2mm); } .print-doc--seat .sc-grid { height: calc(297mm - 20mm - 8mm - 2mm); } }

@@ -56,7 +56,7 @@ function editor(id) {
     const st = { title: routine.title ?? '', note: routine.note ?? '', columns: [...(routine.columns ?? [])], slots: routine.slots?.length ? [...routine.slots] : [...DEFAULT_SLOTS], days: (routine.days ?? []).map((d) => ({ ...d, cells: { ...(d.cells ?? {}) } })),
       duties: { ...(routine.duties ?? {}) }, committee: [...(routine.committee ?? [])], dutyPrefix: routine.dutyPrefix ?? 'জনাব',
       admit: { sentence: 'তাকে {date} তারিখ পর্যন্ত / পূর্ণ অনুমতি দেওয়া হলো।', validUntil: '', ...(routine.admit ?? {}) },
-      seat: { perPage: 12, fields: ['exam', 'class', 'roll', 'name'], ...(routine.seat ?? {}) } };
+      seat: { perPage: 8, fields: ['exam', 'title', 'class', 'roll'], ...(routine.seat ?? {}) } };
     for (const c of st.columns) { Object.assign(c, { ...parse(c.sessionId), ...c }); await bundleOf(c.sessionId); }
     let dirty = false;
     const mark = () => { dirty = true; saveState.hidden = false; };
@@ -264,23 +264,55 @@ function editor(id) {
       const { ctx, r, printContainer } = await printing();
       const { examDateRange } = await import('../../domain/routine.js');
       let colIdx = 0;
+      let all = [];
+      let mode = 'all';               // 'all' | 'selected'
+      const chosen = new Set();       // rolls+group keys of selected students
+      const keyOf = (x) => `${x.groupId}|${x.roll}`;
       const area = h('div', { class: 'print-area' });
       const until = h('input', { class: 'input input--compact', type: 'date', 'aria-label': tt('Valid until', 'যে তারিখ পর্যন্ত') });
-      const sentence = h('input', { class: 'input', value: st.admit.sentence, 'aria-label': tt('Sentence', 'বাক্য'), oninput: (e) => { st.admit.sentence = e.target.value; mark(); paint(); } });
-      const paint = async () => {
+      const sentence = h('input', { class: 'input', value: st.admit.sentence, 'aria-label': tt('Sentence', 'বাক্য'), oninput: (e) => { st.admit.sentence = e.target.value; mark(); paintCards(); } });
+      const pickBox = h('div', { class: 'ac-pick', hidden: true });
+      const countNote = h('span', { class: 'muted small' });
+      const paintCards = () => {
+        const list = mode === 'all' ? all : all.filter((x) => chosen.has(keyOf(x)));
+        countNote.textContent = tt('{n} card(s) · {p} page(s)', '{n}টি কার্ড · {p} পৃষ্ঠা', { n: bnDigits(list.length), p: bnDigits(Math.ceil(list.length / 4)) });
+        area.replaceChildren(...(list.length ? r.renderAdmitCards(list, { ...colMeta(st.columns[colIdx]), validUntil: until.value, sentence: st.admit.sentence }, ctx)
+          : [emptyState({ message: mode === 'all' ? tt('No students found for this class and session.', 'এই শ্রেণি ও সেশনে কোনো শিক্ষার্থী পাওয়া যায়নি।') : tt('Tick the students to print (4 per page).', 'যাদের কার্ড ছাপাবেন তাদের টিক দিন (প্রতি পৃষ্ঠায় ৪টি)।') })]));
+      };
+      const rollInput = h('input', { class: 'input input--compact', inputmode: 'numeric', placeholder: tt('Roll, e.g. 101 or 101, 105, 210', 'রোল, যেমন ১০১ বা ১০১, ১০৫, ২১০'), 'aria-label': tt('Add by roll', 'রোল দিয়ে যোগ') });
+      const paintPick = () => {
+        const toEn = (v) => String(v).replace(/[০-৯]/g, (d) => '০১২৩৪৫৬৭৮৯'.indexOf(d));
+        pickBox.replaceChildren(
+          h('div', { class: 'row-actions' }, rollInput,
+            button(tt('Add', 'যোগ'), { size: 'sm', icon: 'plus', onClick: () => {
+              const rolls = toEn(rollInput.value).split(/[\s,]+/).filter(Boolean);
+              let n = 0; for (const x of all) if (rolls.includes(String(x.roll))) { chosen.add(keyOf(x)); n++; }
+              if (!n) toast(tt('No student with that roll.', 'এই রোলের কোনো শিক্ষার্থী নেই।'), 'error');
+              rollInput.value = ''; paintPick(); paintCards();
+            } }),
+            button(tt('Clear', 'সব সরান'), { size: 'sm', onClick: () => { chosen.clear(); paintPick(); paintCards(); } })),
+          h('ul', { class: 'ac-pick__list' }, all.map((x) => h('li', {}, h('label', { class: 'check-chip' },
+            h('input', { type: 'checkbox', class: 'checkbox', checked: chosen.has(keyOf(x)), onchange: (e) => { if (e.target.checked) chosen.add(keyOf(x)); else chosen.delete(keyOf(x)); paintCards(); } }),
+            h('span', {}, `${bnDigits(x.roll)} — ${x.name}${x.groupName ? ` (${x.groupName})` : ''}`))))));
+      };
+      const load = async () => {
         const col = st.columns[colIdx];
         if (!until.value) until.value = st.admit.validUntil || examDateRange([st], col.sessionId)?.last || '';
-        const students = await studentsFor(col);
-        area.replaceChildren(...(students.length ? r.renderAdmitCards(students, { ...colMeta(col), validUntil: until.value, sentence: st.admit.sentence }, ctx) : [emptyState({ message: tt('No students found for this class and session.', 'এই শ্রেণি ও সেশনে কোনো শিক্ষার্থী পাওয়া যায়নি।') })]));
+        all = await studentsFor(col);
+        chosen.clear(); paintPick(); paintCards();
       };
-      until.addEventListener('change', () => { st.admit.validUntil = until.value; mark(); paint(); });
-      panel.replaceChildren(h('div', { class: 'print-controls no-print' }, columnPicker((i) => { colIdx = i; until.value = ''; paint(); }),
-        h('label', { class: 'field field--inline' }, h('span', { class: 'field__label' }, tt('Valid until', 'যে তারিখ পর্যন্ত')), until),
+      until.addEventListener('change', () => { st.admit.validUntil = until.value; mark(); paintCards(); });
+      const modeSel = h('select', { class: 'input input--compact', 'aria-label': tt('Which students', 'কোন শিক্ষার্থী'), onchange: (e) => { mode = e.target.value; pickBox.hidden = mode === 'all'; paintCards(); } },
+        h('option', { value: 'all' }, tt('All students', 'সব শিক্ষার্থী')), h('option', { value: 'selected' }, tt('Selected students only', 'শুধু বাছাই করা শিক্ষার্থী')));
+      panel.replaceChildren(h('div', { class: 'print-controls no-print' }, columnPicker((i) => { colIdx = i; until.value = ''; load(); }), modeSel,
+        h('label', { class: 'field field--inline' }, h('span', { class: 'field__label' }, tt('Valid until', 'যে তারিখ পর্যন্ত')), until), countNote,
         button(tt('Print admit cards', 'প্রবেশ পত্র প্রিন্ট'), { kind: 'primary', icon: 'print', onClick: () => printContainer(area, { pageNumbers: false }) })),
+        h('div', { class: 'no-print' }, pickBox),
         h('div', { class: 'no-print rt-sentence' }, h('label', { class: 'field' }, h('span', { class: 'field__label' }, tt('Permission sentence ({date} is replaced by the date)', 'অনুমতির বাক্য ({date}-এর জায়গায় তারিখ বসবে)')), sentence),
-          h('p', { class: 'muted small' }, tt("Four cards per A4 page. The principal's signature comes from Settings → Institution.", 'প্রতি A4 পৃষ্ঠায় চারটি কার্ড। অধ্যক্ষের স্বাক্ষর আসে সেটিংস → প্রতিষ্ঠান থেকে।')), saveRow()),
+          h('p', { class: 'muted small' }, tt("Four cards per A4 page. To give some students a different date, choose \"Selected students only\", tick them, set their date and print; then do the same for the others. The principal's signature comes from Settings → Institution.",
+            'প্রতি A4 পৃষ্ঠায় চারটি কার্ড। কয়েকজনকে আলাদা তারিখ দিতে "শুধু বাছাই করা শিক্ষার্থী" বেছে তাদের টিক দিন, তারিখ বসিয়ে প্রিন্ট করুন; তারপর বাকিদের জন্য একইভাবে। অধ্যক্ষের স্বাক্ষর আসে সেটিংস → প্রতিষ্ঠান থেকে।')), saveRow()),
         area);
-      paint();
+      load();
     }
 
     async function seatTab(panel) {
@@ -288,14 +320,14 @@ function editor(id) {
       const { ctx, r, printContainer } = await printing();
       let colIdx = 0;
       const area = h('div', { class: 'print-area' });
-      const FIELDS = [['institution', tt('College name', 'কলেজের নাম')], ['exam', tt('Examination', 'পরীক্ষা')], ['class', tt('Class', 'শ্রেণি')], ['group', tt('Group', 'বিভাগ')], ['session', tt('Session', 'শিক্ষাবর্ষ')], ['roll', tt('Class roll', 'শ্রেণি রোল')], ['name', tt('Student name', 'শিক্ষার্থীর নাম')], ['fourth', tt('4th subject', '৪র্থ বিষয়')]];
+      const FIELDS = [['institution', tt('College name', 'কলেজের নাম')], ['exam', tt('Examination', 'পরীক্ষা')], ['title', tt('"Examinee\'s seat" heading', '"পরীক্ষার্থীর আসন" শিরোনাম')], ['class', tt('Class', 'শ্রেণি')], ['group', tt('Group', 'বিভাগ')], ['session', tt('Session', 'শিক্ষাবর্ষ')], ['roll', tt('Class roll', 'শ্রেণি রোল')], ['name', tt('Student name', 'শিক্ষার্থীর নাম')], ['fourth', tt('4th subject', '৪র্থ বিষয়')]];
       const paint = async () => {
         const col = st.columns[colIdx];
         const students = await studentsFor(col);
         area.replaceChildren(...(students.length ? r.renderSeatCards(students, { ...colMeta(col), perPage: Number(st.seat.perPage), fields: FIELDS.map(([k]) => k).filter((k) => st.seat.fields.includes(k)) }, ctx) : [emptyState({ message: tt('No students found for this class and session.', 'এই শ্রেণি ও সেশনে কোনো শিক্ষার্থী পাওয়া যায়নি।') })]));
       };
       const per = h('select', { class: 'input input--compact', 'aria-label': tt('Cards per page', 'প্রতি পৃষ্ঠায় কার্ড'), onchange: (e) => { st.seat.perPage = Number(e.target.value); mark(); paint(); } },
-        [6, 9, 12, 15, 18].map((n) => h('option', { value: n, selected: Number(st.seat.perPage) === n }, tt('{n} per page', 'প্রতি পৃষ্ঠায় {n}টি', { n }))));
+        [4, 6, 8, 9, 12, 15].map((n) => h('option', { value: n, selected: Number(st.seat.perPage) === n }, tt('{n} per page', 'প্রতি পৃষ্ঠায় {n}টি', { n }))));
       const checks = h('div', { class: 'check-row' }, FIELDS.map(([k, label]) => h('label', { class: 'check-chip' }, h('input', { type: 'checkbox', class: 'checkbox', checked: st.seat.fields.includes(k), onchange: (e) => {
         st.seat.fields = e.target.checked ? [...st.seat.fields, k] : st.seat.fields.filter((x) => x !== k); mark(); paint(); } }), h('span', {}, label))));
       panel.replaceChildren(h('div', { class: 'print-controls no-print' }, columnPicker((i) => { colIdx = i; paint(); }), per,
