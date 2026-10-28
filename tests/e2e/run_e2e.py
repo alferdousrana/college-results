@@ -96,7 +96,10 @@ async def main():
         await page.goto(f'{BASE}/#/admin/sheet/new'); await page.wait_for_timeout(1200)
         await page.select_option('select[name=class]', 'class-11'); await page.select_option('select[name=exam]', 'test'); await page.wait_for_timeout(200)
         await page.locator('.check-chip', has_text='Science').click()
-        for _ in range(4):
+        await page.get_by_role('button', name='Continue').click(); await page.wait_for_timeout(1200)
+        subj = await page.inner_text('.wizard-panel')
+        check('subjects step shows how many students take each subject', 'Science · 10 students' in subj and '(10 students)' in subj, subj[:200])
+        for _ in range(3):
             await page.get_by_role('button', name='Continue').click(); await page.wait_for_timeout(900)
         check('wizard reaches review with students', 'Students' in await page.inner_text('.wizard-panel') and 'Everything needed for sharing' in await page.inner_text('.wizard-panel'))
         await page.screenshot(path=f'{OUT}/wizard-review.png', full_page=True)

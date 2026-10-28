@@ -48,7 +48,8 @@ async function init(sid, body) {
   const teachers = await listTeachers();
   const tById = byId(teachers);
   const st = { sid, step: 0, dirty: false, details: { yearId: cats.years.find((y) => y.active)?.id ?? cats.years.at(-1)?.id ?? '', classId: '', examDefId: '', titleEn: '', titleBn: '', heldOn: '', startDate: '', endDate: '', notes: '' },
-    groupIds: [], groupSubjects: {}, groupRoles: {}, groupRules: {}, teachers: {}, roster: new Map(), rosterLoadedFor: null };
+    groupIds: [], groupSubjects: {}, groupRoles: {}, groupRules: {}, teachers: {}, roster: new Map(), rosterLoadedFor: null,
+    keepEmpty: {}, showEmpty: {} }; // keepEmpty[g]: subjects with no students the admin ticked back in
 
   if (sid) {
     const b = await sessions.loadSessionBundle(sid);
@@ -71,6 +72,70 @@ async function init(sid, body) {
   const cls = () => cats.classes.find((c) => c.id === st.details.classId);
   const subjectsFor = (groupId) => cats.subjects.filter((s) => s.active !== false && (!s.classIds?.length || s.classIds.includes(st.details.classId)) && (!s.groupIds?.length || s.groupIds.includes(groupId)));
   const chosenSubjectIds = () => [...new Set(st.groupIds.flatMap((g) => st.groupSubjects[g] ?? []))];
+
+  // ---- Class roster (shared by the Subjects and Students steps) ----
+  const rosterKey = () => `${st.details.yearId}|${st.details.classId}`;
+  const rosterReady = () => st.rosterLoadedFor === rosterKey();
+  async function loadRoster(force = false) {
+    const key = rosterKey();
+    if (!force && st.rosterLoadedFor === key) return;
+    // A new sheet whose class or session changed starts from that class's students only.
+    if (!st.sid && st.rosterLoadedFor && st.rosterLoadedFor !== key) st.roster = new Map();
+    const { listClassRoster } = await import('../../data/repositories/students-repository.js');
+    const list = await listClassRoster(st.details.yearId, st.details.classId);
+    // Existing rows pick up subject choices saved on the student record (when the row has none yet).
+    for (const s of list) {
+      const row = st.roster.get(s.id);
+      if (row && !row.subjectIds?.length && s.current?.subjectIds?.length) { row.subjectIds = [...s.current.subjectIds]; row.optionalSubjectId = s.current.optionalSubjectId ?? null; }
+    }
+    for (const s of list) if (!st.roster.has(s.id)) st.roster.set(s.id, { studentId: s.id, include: true, roll: s.current.roll, name: { en: s.nameEn, bn: s.nameBn }, groupId: s.current.groupId, optionalSubjectId: s.current.optionalSubjectId ?? null, subjectIds: s.current.subjectIds ?? null, section: s.current.section, shift: s.current.shift });
+    st.rosterLoadedFor = key;
+  }
+
+  // ---- How many students take each subject ----
+  const roleOf = (g, id) => st.groupRoles[g]?.[id] ?? 'compulsory';
+  /** Counts of the included students of one group: total, main choices and 4th subjects per subject. */
+  function groupCounts(g) {
+    const rows = [...st.roster.values()].filter((r) => r.include && r.groupId === g);
+    const main = {}, fourth = {};
+    let withChoices = 0;
+    for (const r of rows) {
+      const ids = Array.isArray(r.subjectIds) ? r.subjectIds : [];
+      if (ids.length || r.optionalSubjectId) withChoices += 1;
+      for (const id of new Set(ids)) if (id !== r.optionalSubjectId) main[id] = (main[id] ?? 0) + 1;
+      if (r.optionalSubjectId) fourth[r.optionalSubjectId] = (fourth[r.optionalSubjectId] ?? 0) + 1;
+    }
+    const rules = st.groupRules[g] ?? {};
+    const needsChoices = Number(rules.choiceCount ?? 0) > 0 || Boolean(rules.requiresFourth);
+    const missing = needsChoices ? rows.length - withChoices : 0;
+    // Subjects are left out only when every student's choices are known; otherwise a subject
+    // could vanish just because someone's choices are not entered yet.
+    const canPrune = rosterReady() && rows.length > 0 && withChoices > 0 && missing === 0;
+    return { total: rows.length, withChoices, missing, canPrune, main, fourth };
+  }
+  const takers = (counts, id) => (counts.main[id] ?? 0) + (counts.fourth[id] ?? 0);
+  /** Non-compulsory subjects of a group that no student takes. */
+  function emptySubjectIds(g, counts = groupCounts(g)) {
+    if (!counts.canPrune) return [];
+    return subjectsFor(g).filter((x) => roleOf(g, x.id) !== 'compulsory' && !takers(counts, x.id)).map((x) => x.id);
+  }
+  /** Removes subjects nobody takes from the group (unless the admin ticked them back in). */
+  function pruneEmpty(g, counts = groupCounts(g)) {
+    const keep = st.keepEmpty[g] ?? new Set();
+    const empty = emptySubjectIds(g, counts).filter((id) => !keep.has(id));
+    const before = st.groupSubjects[g] ?? [];
+    const after = before.filter((id) => !empty.includes(id));
+    if (after.length !== before.length) { st.groupSubjects[g] = after; st.dirty = true; }
+    return empty;
+  }
+  function countLabel(g, id, counts) {
+    const n = roleOf(g, id) === 'compulsory' ? counts.total : (counts.main[id] ?? 0);
+    const f = roleOf(g, id) === 'compulsory' ? 0 : (counts.fourth[id] ?? 0);
+    const en = (k) => (k === 1 ? 'student' : 'students');
+    if (n && f) return tt(`({n} ${en(n)} · {f} as 4th)`, '({n} জন · ৪র্থ হিসেবে {f} জন)', { n, f });
+    if (f) return tt('({f} as 4th subject)', '(৪র্থ বিষয় হিসেবে {f} জন)', { f });
+    return tt(`({n} ${en(n)})`, '({n} জন)', { n });
+  }
   const stepper = h('ol', { class: 'stepper' });
   const panel = h('div', { class: 'wizard-panel card' });
   const footer = h('div', { class: 'wizard-foot' });
@@ -176,28 +241,71 @@ async function init(sid, body) {
   }
 
   function stepSubjects() {
-    return h('div', {}, h('p', { class: 'muted' }, tt('For each group choose the subjects, whether each is compulsory or chosen by the student, and the group rules. Papers such as Bangla 1st and 2nd are separate subjects and are combined automatically for the grade.',
-      'প্রতিটি বিভাগের বিষয়, কোনটি আবশ্যিক আর কোনটি শিক্ষার্থী বাছবে, এবং বিভাগের নিয়ম ঠিক করুন। বাংলা ১ম ও ২য় পত্রের মতো পত্রগুলো আলাদা বিষয়, গ্রেডের সময় স্বয়ংক্রিয়ভাবে একসাথে হিসাব হয়।')),
-    st.groupIds.map((g) => {
-      const options = ensureGroupDefaults(g);
-      const rules = st.groupRules[g];
-      const num = (label, key, attrs) => h('label', { class: 'field field--inline' }, h('span', { class: 'field__label' }, label),
-        h('input', { class: 'input input--compact', type: 'number', min: 0, value: rules[key] ?? '', ...attrs, onchange: (e) => { rules[key] = e.target.value === '' ? null : Number(e.target.value); markDirty(); } }));
-      return h('fieldset', { class: 'fieldset subject-pick' }, h('legend', {}, nameOf(cats.groups, g)),
-        h('div', { class: 'row-actions group-rules' },
-          num(tt('Subjects each student chooses', 'প্রত্যেক শিক্ষার্থী যতটি বিষয় বাছবে'), 'choiceCount', { max: 10 }),
-          h('label', { class: 'check-chip' }, h('input', { type: 'checkbox', class: 'checkbox', checked: rules.requiresFourth, onchange: (e) => { rules.requiresFourth = e.target.checked; markDirty(); } }), h('span', {}, tt('Every student has a 4th subject', 'প্রত্যেকের ৪র্থ বিষয় আছে'))),
-          num(tt('Papers per student', 'প্রতি শিক্ষার্থীর পত্র সংখ্যা'), 'examsPerStudent', { max: 30 })),
-        options.length ? h('table', { class: 'data-table subject-roles' }, h('thead', {}, h('tr', {}, h('th', {}, tt('Include', 'অন্তর্ভুক্ত')), h('th', {}, tt('Subject', 'বিষয়')), h('th', {}, tt('Role in this group', 'এই বিভাগে ভূমিকা')), h('th', {}, tt('Marks', 'নম্বর')))),
-          h('tbody', {}, options.map((x) => {
-            const cb = h('input', { type: 'checkbox', class: 'checkbox', checked: st.groupSubjects[g].includes(x.id), 'aria-label': L(x.name), onchange: (e) => {
-              st.groupSubjects[g] = e.target.checked ? [...new Set([...st.groupSubjects[g], x.id])] : st.groupSubjects[g].filter((y) => y !== x.id); markDirty(); } });
-            const role = h('select', { class: 'input input--sm', 'aria-label': tt('Role', 'ভূমিকা'), onchange: (e) => { st.groupRoles[g][x.id] = e.target.value; markDirty(); } },
-              Object.entries(ROLE_LABELS()).map(([v, l]) => h('option', { value: v, selected: (st.groupRoles[g][x.id] ?? 'compulsory') === v }, l)));
-            return h('tr', {}, h('td', {}, cb), h('td', {}, h('strong', {}, L(x.name)), x.code ? h('span', { class: 'muted small' }, ` ${x.code}`) : null, x.combine?.key ? h('div', { class: 'muted small' }, tt('Combined into {n}', '{n}-এ একত্রে হিসাব', { n: L(x.combine.name) })) : null),
-              h('td', {}, role), h('td', { class: 'muted small' }, compSummary(x)));
-          }))) : h('p', { class: 'muted' }, tt('No active subjects for this class and group. Add them in Subjects.', 'এই শ্রেণি ও বিভাগের কোনো সক্রিয় বিষয় নেই। বিষয় পৃষ্ঠায় যোগ করুন।')));
-    }));
+    const intro = h('p', { class: 'muted' }, tt('For each group choose the subjects, whether each is compulsory or chosen by the student, and the group rules. Papers such as Bangla 1st and 2nd are separate subjects and are combined automatically for the grade. The number beside each subject is how many students take it; subjects no student takes are left out of the sheet.',
+      'প্রতিটি বিভাগের বিষয়, কোনটি আবশ্যিক আর কোনটি শিক্ষার্থী বাছবে, এবং বিভাগের নিয়ম ঠিক করুন। বাংলা ১ম ও ২য় পত্রের মতো পত্রগুলো আলাদা বিষয়, গ্রেডের সময় স্বয়ংক্রিয়ভাবে একসাথে হিসাব হয়। প্রতিটি বিষয়ের পাশের সংখ্যা হলো কতজন শিক্ষার্থী বিষয়টি নিয়েছে; যে বিষয় কেউ নেয়নি তা শিটে রাখা হয় না।'));
+    const groupsBox = h('div', {}, loadingState());
+    // Each group sits in its own box so one group can repaint without touching the others.
+    // Repaints wait a tick: replacing a focused input fires its blur/change handlers mid-update.
+    const groupBox = (g) => {
+      const box = h('div'); let queued = false;
+      const draw = () => box.replaceChildren(groupFieldset(g, repaint));
+      const repaint = () => { if (queued) return; queued = true; setTimeout(() => { queued = false; if (box.isConnected) draw(); }, 0); };
+      draw(); return box;
+    };
+    const paintAll = () => groupsBox.replaceChildren(...st.groupIds.map((g) => groupBox(g)));
+    loadRoster().then(paintAll).catch((e) => {
+      toast(tt('Could not load the students, so the student counts are not shown.', 'শিক্ষার্থীদের তথ্য আনা যায়নি, তাই শিক্ষার্থী সংখ্যা দেখানো যাচ্ছে না।') + ` ${friendlyError(e)}`, 'error');
+      paintAll();
+    });
+    return h('div', {}, intro, groupsBox);
+  }
+
+  function groupFieldset(g, repaint) {
+    const options = ensureGroupDefaults(g);
+    const rules = st.groupRules[g];
+    const ready = rosterReady();
+    const counts = groupCounts(g);
+    const empty = pruneEmpty(g, counts);
+    const keep = (st.keepEmpty[g] ??= new Set());
+    const hiddenIds = empty.filter((id) => !keep.has(id));
+    const showEmpty = Boolean(st.showEmpty[g]);
+    const num = (label, key, attrs) => h('label', { class: 'field field--inline' }, h('span', { class: 'field__label' }, label),
+      h('input', { class: 'input input--compact', type: 'number', min: 0, value: rules[key] ?? '', ...attrs, onchange: (e) => { rules[key] = e.target.value === '' ? null : Number(e.target.value); markDirty(); if (key === 'choiceCount') repaint(); } }));
+    const visible = options.filter((x) => showEmpty || !hiddenIds.includes(x.id));
+    const notices = [];
+    if (ready && !counts.total) notices.push(h('p', { class: 'notice notice--locked' }, tt('No students of this class are in this group yet, so every subject is listed.', 'এই শ্রেণির কোনো শিক্ষার্থী এখনো এই বিভাগে নেই, তাই সব বিষয় দেখানো হচ্ছে।')));
+    else if (ready && counts.missing > 0) notices.push(h('p', { class: 'notice notice--locked' }, tt('{n} student(s) of this group have no subject choices yet, so every subject is listed. Enter their choices on the Students page or in step 4, then come back here.', 'এই বিভাগের {n} জন শিক্ষার্থীর বিষয় এখনো বাছাই করা হয়নি, তাই সব বিষয় দেখানো হচ্ছে। শিক্ষার্থী পৃষ্ঠায় বা ধাপ ৪-এ তাদের বিষয় ঠিক করে এখানে ফিরে আসুন।', { n: counts.missing })));
+    else if (ready && counts.total && !counts.withChoices && options.some((x) => roleOf(g, x.id) !== 'compulsory')) notices.push(h('p', { class: 'notice notice--locked' }, tt('No student of this group has subject choices yet, so every subject is listed.', 'এই বিভাগের কোনো শিক্ষার্থীর বিষয় এখনো বাছাই করা হয়নি, তাই সব বিষয় দেখানো হচ্ছে।')));
+    const legend = ready ? `${nameOf(cats.groups, g)} · ${tt(counts.total === 1 ? '{n} student' : '{n} students', '{n} জন শিক্ষার্থী', { n: counts.total })}` : nameOf(cats.groups, g);
+    return h('fieldset', { class: 'fieldset subject-pick' }, h('legend', {}, legend),
+      h('div', { class: 'row-actions group-rules' },
+        num(tt('Subjects each student chooses', 'প্রত্যেক শিক্ষার্থী যতটি বিষয় বাছবে'), 'choiceCount', { max: 10 }),
+        h('label', { class: 'check-chip' }, h('input', { type: 'checkbox', class: 'checkbox', checked: rules.requiresFourth, onchange: (e) => { rules.requiresFourth = e.target.checked; markDirty(); repaint(); } }), h('span', {}, tt('Every student has a 4th subject', 'প্রত্যেকের ৪র্থ বিষয় আছে'))),
+        num(tt('Papers per student', 'প্রতি শিক্ষার্থীর পত্র সংখ্যা'), 'examsPerStudent', { max: 30 })),
+      ...notices,
+      options.length ? h('table', { class: 'data-table subject-roles' }, h('thead', {}, h('tr', {}, h('th', {}, tt('Include', 'অন্তর্ভুক্ত')), h('th', {}, tt('Subject', 'বিষয়')), h('th', {}, tt('Role in this group', 'এই বিভাগে ভূমিকা')), h('th', {}, tt('Marks', 'নম্বর')))),
+        h('tbody', {}, visible.map((x) => {
+          const isEmpty = empty.includes(x.id);
+          const cb = h('input', { type: 'checkbox', class: 'checkbox', checked: st.groupSubjects[g].includes(x.id), 'aria-label': L(x.name), onchange: (e) => {
+            st.groupSubjects[g] = e.target.checked ? [...new Set([...st.groupSubjects[g], x.id])] : st.groupSubjects[g].filter((y) => y !== x.id);
+            if (isEmpty) { if (e.target.checked) keep.add(x.id); else keep.delete(x.id); }
+            markDirty(); } });
+          const role = h('select', { class: 'input input--sm', 'aria-label': tt('Role', 'ভূমিকা'), onchange: (e) => { st.groupRoles[g][x.id] = e.target.value; markDirty(); repaint(); } },
+            Object.entries(ROLE_LABELS()).map(([v, l]) => h('option', { value: v, selected: (st.groupRoles[g][x.id] ?? 'compulsory') === v }, l)));
+          const lbl = subjectLabelForClass(x, st.details.classId); // name and board code(s) for this class
+          const zero = ready && roleOf(g, x.id) !== 'compulsory' && !takers(counts, x.id);
+          return h('tr', { class: isEmpty ? 'is-empty-subject' : '' }, h('td', {}, cb),
+            h('td', {}, h('strong', {}, L(lbl.name)), lbl.code ? h('span', { class: 'muted small' }, ` ${lbl.code}`) : null,
+              ready ? h('span', { class: `subject-count${zero ? ' subject-count--zero' : ''}` }, ` ${countLabel(g, x.id, counts)}`) : null,
+              x.combine?.key ? h('div', { class: 'muted small' }, tt('Combined into {n}', '{n}-এ একত্রে হিসাব', { n: L(x.combine.name) })) : null),
+            h('td', {}, role), h('td', { class: 'muted small' }, compSummary(x)));
+        }))) : h('p', { class: 'muted' }, tt('No active subjects for this class and group. Add them in Subjects.', 'এই শ্রেণি ও বিভাগের কোনো সক্রিয় বিষয় নেই। বিষয় পৃষ্ঠায় যোগ করুন।')),
+      empty.length ? h('div', { class: 'empty-subjects-bar' },
+        h('span', { class: 'muted small' }, showEmpty
+          ? tt('Subjects no student takes are shown greyed out. Tick one only if a student will take it.', 'যে বিষয় কোনো শিক্ষার্থী নেয়নি সেগুলো হালকা করে দেখানো হচ্ছে। কোনো শিক্ষার্থী নেবে এমন হলে তবেই টিক দিন।')
+          : tt('{n} subject(s) that no student takes are left out of this sheet.', 'কোনো শিক্ষার্থী নেয়নি এমন {n}টি বিষয় এই শিটে রাখা হয়নি।', { n: hiddenIds.length })),
+        h('button', { type: 'button', class: 'name-link small', onclick: () => { st.showEmpty[g] = !showEmpty; repaint(); } },
+          showEmpty ? tt('Hide them', 'লুকান') : tt('Show {n} subject(s) with no students', 'শিক্ষার্থী নেই এমন {n}টি বিষয় দেখান', { n: empty.length }))) : null);
   }
 
   /** The group rules as the validation helpers expect them. */
@@ -225,21 +333,7 @@ async function init(sid, body) {
 
   function stepStudents() {
     const box = h('div', {}, loadingState());
-    const key = `${st.details.yearId}|${st.details.classId}`;
-    const load = async (force = false) => {
-      if (force || st.rosterLoadedFor !== key) {
-        const { listClassRoster } = await import('../../data/repositories/students-repository.js');
-        const list = await listClassRoster(st.details.yearId, st.details.classId);
-        // Existing rows pick up subject choices saved on the student record (when the row has none yet).
-        for (const s of list) {
-          const row = st.roster.get(s.id);
-          if (row && !row.subjectIds?.length && s.current?.subjectIds?.length) { row.subjectIds = [...s.current.subjectIds]; row.optionalSubjectId = s.current.optionalSubjectId ?? null; }
-        }
-        for (const s of list) if (!st.roster.has(s.id)) st.roster.set(s.id, { studentId: s.id, include: true, roll: s.current.roll, name: { en: s.nameEn, bn: s.nameBn }, groupId: s.current.groupId, optionalSubjectId: s.current.optionalSubjectId ?? null, subjectIds: s.current.subjectIds ?? null, section: s.current.section, shift: s.current.shift });
-        st.rosterLoadedFor = key;
-      }
-      paintRoster();
-    };
+    const load = async (force = false) => { await loadRoster(force); paintRoster(); };
     const paintRoster = () => {
       const rows = [...st.roster.values()].sort((a, b) => Number(a.roll) - Number(b.roll));
       const dup = new Set(); const seen = new Set();
@@ -257,6 +351,8 @@ async function init(sid, body) {
           h('thead', {}, h('tr', {}, h('th', {}, tt('Include', 'অন্তর্ভুক্ত')), h('th', {}, tt('Roll', 'রোল')), h('th', {}, tt('Name', 'নাম')), h('th', {}, tt('Group', 'বিভাগ')), h('th', {}, tt('Chosen subjects and 4th subject', 'বাছাই করা বিষয় ও ৪র্থ বিষয়')))),
           h('tbody', {}, rows.map((r) => {
             const check = r.groupId ? checkStudentChoices({ sheets: pseudoSheets() }, r) : { errors: [], warnings: [], examCount: 0 };
+            const rowSheet = pseudoSheets().find((x) => x.id === r.groupId);
+            const outside = rowSheet ? [...new Set([...(r.subjectIds ?? []), r.optionalSubjectId].filter(Boolean))].filter((id) => !rowSheet.subjectIds.includes(id)) : [];
             return h('tr', { class: dup.has(r.roll) && r.include ? 'is-error' : '' },
               h('td', {}, h('input', { type: 'checkbox', class: 'checkbox', checked: r.include, 'aria-label': tt('Include roll {r}', 'রোল {r} অন্তর্ভুক্ত', { r: r.roll }), onchange: (e) => { r.include = e.target.checked; markDirty(); paintRoster(); } })),
               h('td', {}, r.roll, dup.has(r.roll) && r.include ? h('span', { class: 'badge badge--bad' }, tt('duplicate', 'পুনরাবৃত্ত')) : null),
@@ -266,6 +362,7 @@ async function init(sid, body) {
               h('td', {}, h('div', { class: 'choice-cell' },
                 h('span', { class: 'small' }, choiceSummary(r) || tt('Compulsory subjects only', 'শুধু আবশ্যিক বিষয়')),
                 h('span', { class: `badge badge--${check.errors.length ? 'bad' : check.warnings.length ? 'warn' : 'good'}`, title: [...check.errors, ...check.warnings].join('\n') }, tt('{n} papers', '{n}টি পত্র', { n: check.examCount })),
+                outside.length ? h('span', { class: 'badge badge--warn', title: tt('This student chose a subject that is not included in step 2.', 'এই শিক্ষার্থী এমন বিষয় নিয়েছে যা ধাপ ২-এ অন্তর্ভুক্ত নয়।') }, tt('Not in this sheet: {x}', 'শিটে নেই: {x}', { x: outside.map((id) => nameOf(cats.subjects, id)).join(', ') })) : null,
                 r.groupId && hasChoices(r.groupId) ? button(tt('Choose', 'বাছুন'), { size: 'sm', onClick: () => pickSubjects(r) }) : null)));
           })))) : h('p', { class: 'muted' }, tt('No students in this class yet. Add them or import a JSON file.', 'এই শ্রেণিতে এখনো শিক্ষার্থী নেই। যোগ করুন বা JSON ফাইল ইমপোর্ট করুন।')));
     };
@@ -287,7 +384,7 @@ async function init(sid, body) {
       const fourth = selectField({ label: tt('4th subject', '৪র্থ বিষয়'), name: 'st4', value: cur.optionalSubjectId ?? '', options: [{ value: '', label: '—' }, ...fourthIds.map((id) => ({ value: id, label: nameOf(cats.subjects, id) }))] });
       const err = h('p', { class: 'field__error', hidden: true });
       openModal({ title: bulkGroup ? tt('Same choices for every student in {g}', '{g}-এর সব শিক্ষার্থীর জন্য একই বাছাই', { g: nameOf(cats.groups, g) }) : tt('Subjects for roll {r}', 'রোল {r}-এর বিষয়', { r: r.roll }),
-        content: h('div', {}, cg?.el, fourth.el, err, bulkGroup ? h('p', { class: 'muted small' }, tt('You can still change individual students afterwards.', 'পরে আলাদা শিক্ষার্থীর বাছাই বদলানো যাবে।')) : null),
+        content: h('div', {}, cg?.el, fourth.el, err, emptySubjectIds(g).some((id) => !sheet.subjectIds.includes(id)) ? h('p', { class: 'muted small' }, tt('Subjects no student takes are not listed here. To offer one, go back to step 2 and use "Show subjects with no students".', 'যে বিষয় কেউ নেয়নি তা এখানে নেই। দরকার হলে ধাপ ২-এ গিয়ে "শিক্ষার্থী নেই এমন বিষয় দেখান" থেকে যোগ করুন।')) : null, bulkGroup ? h('p', { class: 'muted small' }, tt('You can still change individual students afterwards.', 'পরে আলাদা শিক্ষার্থীর বাছাই বদলানো যাবে।')) : null),
         actions: [{ label: t('common.cancel'), onClick: () => true }, { label: t('common.save'), kind: 'primary', onClick: () => {
           const chosen = cg?.value ?? [];
           const f = fourth.value || null;
@@ -322,6 +419,8 @@ async function init(sid, body) {
 
   function buildPayload() {
     const d = st.details;
+    // Choices may have changed in step 4: drop subjects that no student takes any more.
+    if (rosterReady()) st.groupIds.forEach((g) => { if (st.groupSubjects[g]) pruneEmpty(g); });
     const subjectIds = chosenSubjectIds();
     return {
       yearId: d.yearId, classId: d.classId, examDefId: d.examDefId,
