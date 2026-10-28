@@ -21,6 +21,8 @@ service cloud.firestore {
     function isActive() { return signedIn() && exists(userPath(uid())) && me().status == 'active'; }
     function isAdmin() { return isActive() && me().role == 'super_admin'; }
     function isTeacher() { return isActive() && me().role == 'teacher'; }
+    // Extra right given by the Super Admin to a teacher or staff member: add and edit students (never delete).
+    function canManageStudents() { return isAdmin() || (isActive() && me().role in ['teacher', 'staff'] && me().get('grants', {}).get('students', false) == true); }
     function serverTime(field) { return request.resource.data[field] == request.time; }
     function onlyChanges(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
 
@@ -65,14 +67,14 @@ service cloud.firestore {
         && request.resource.data.email == request.auth.token.email
         && serverTime('createdAt')
         // …or an administrator creates an already-approved teacher account.
-        || (isAdmin() && request.resource.data.role == 'teacher' && request.resource.data.status == 'active'
+        || (isAdmin() && request.resource.data.role in ['teacher', 'staff'] && request.resource.data.status == 'active'
             && request.resource.data.approvedBy == uid());
       // Owners may edit harmless profile fields only.
       allow update: if (signedIn() && uid() == userId && onlyChanges(['displayName', 'phone', 'prefs', 'updatedAt']))
-        || (isAdmin() && request.resource.data.role in ['teacher', 'super_admin']
+        || (isAdmin() && request.resource.data.role in ['teacher', 'staff', 'super_admin']
             && request.resource.data.status in ['pending', 'active', 'rejected', 'disabled']);
       // Only teacher profiles with no history (checked by the app) — never your own, never an admin.
-      allow delete: if isAdmin() && userId != uid() && resource.data.role == 'teacher';
+      allow delete: if isAdmin() && userId != uid() && resource.data.role in ['teacher', 'staff'];
     }
 
     // ---------- institution, settings, catalogue ----------
@@ -97,15 +99,16 @@ service cloud.firestore {
 
     // ---------- students (private records: admin only) ----------
     match /students/{studentId} {
-      allow read, write: if isAdmin();
+      allow read, create, update: if canManageStudents();
+      allow delete: if isAdmin();
       // Per-student summary of published results (written at publication).
       match /publishedResults/{sessionId} { allow read, write: if isAdmin(); }
     }
     // Doc id `${yearId}__${classId}__${roll}` makes duplicate rolls impossible.
     match /classEnrollments/{enrollmentId} {
-      allow read: if isAdmin();
-      allow create: if isAdmin() && enrollmentId == request.resource.data.yearId + '__' + request.resource.data.classId + '__' + request.resource.data.roll;
-      allow update, delete: if isAdmin();
+      allow read: if canManageStudents();
+      allow create: if canManageStudents() && enrollmentId == request.resource.data.yearId + '__' + request.resource.data.classId + '__' + request.resource.data.roll;
+      allow update, delete: if canManageStudents();
     }
 
     // ---------- examination sessions ----------

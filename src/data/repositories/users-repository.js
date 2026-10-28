@@ -42,6 +42,26 @@ export async function saveCreatedTeacher(actor, uid, profile) {
   await batch.commit();
 }
 
+/** Sets the extra rights of a teacher or staff account (only the Super Admin can; enforced by rules). */
+export async function setUserGrants(actor, uid, grants) {
+  const b = await getBackend();
+  const before = await b.get(paths.user(uid));
+  const batch = b.batch();
+  batch.update(paths.user(uid), { grants, updatedAt: serverTime() });
+  addAudit(b, batch, { action: 'grants_changed', actor, targetPath: paths.user(uid), before: { grants: before?.grants ?? {} }, after: { grants } });
+  await batch.commit();
+}
+
+/** Login account for a staff member (role staff), linked to staff/{staffId}. */
+export async function saveCreatedStaffUser(actor, uid, profile, staffId) {
+  const b = await getBackend();
+  const batch = b.batch();
+  batch.set(paths.user(uid), profile);
+  batch.update(`${C.STAFF}/${staffId}`, { userId: uid, loginEmail: profile.email, updatedAt: serverTime() });
+  addAudit(b, batch, { action: 'staff_login_created', actor, targetPath: paths.user(uid), after: { email: profile.email, grants: profile.grants ?? {} } });
+  await batch.commit();
+}
+
 export async function updateOwnProfile(uid, { displayName, phone }) {
   const b = await getBackend();
   await b.update(paths.user(uid), { displayName, phone: phone || null, updatedAt: serverTime() });
@@ -57,17 +77,17 @@ export async function saveOwnPrefs(uid, prefs) {
  * Administrator edits a teacher's name, mobile number and extra fields. Email and password belong
  * to the sign-in account and are not editable here. The name shown on assignments is updated too.
  */
-export async function updateTeacher(actor, uid, { displayName, phone, customFields }) {
+export async function updateTeacher(actor, uid, { displayName, phone, customFields, grants }) {
   if (!displayName?.trim()) throw new Error('Name is required.');
   const b = await getBackend();
   const before = await b.get(paths.user(uid));
-  if (!before || before.role !== 'teacher') throw new Error('Teacher not found.');
+  if (!before || !['teacher', 'staff'].includes(before.role)) throw new Error('Teacher not found.');
   const batch = b.batch();
-  batch.update(paths.user(uid), { displayName: displayName.trim(), phone: phone?.trim() || null, customFields: customFields ?? {}, updatedAt: serverTime() });
+  batch.update(paths.user(uid), { displayName: displayName.trim(), phone: phone?.trim() || null, customFields: customFields ?? {}, ...(grants ? { grants } : {}), updatedAt: serverTime() });
   if (before.displayName !== displayName.trim()) {
     const { items } = await b.list(C.TEACHER_ASSIGNMENTS, { where: [['teacherId', '==', uid]], limit: 500 });
     items.forEach((a) => batch.update(`${C.TEACHER_ASSIGNMENTS}/${a.id}`, { teacherName: displayName.trim() }));
   }
-  addAudit(b, batch, { action: 'teacher_updated', actor, targetPath: paths.user(uid), before: { displayName: before.displayName, phone: before.phone ?? null }, after: { displayName: displayName.trim(), phone: phone?.trim() || null } });
+  addAudit(b, batch, { action: 'teacher_updated', actor, targetPath: paths.user(uid), before: { displayName: before.displayName, phone: before.phone ?? null }, after: { displayName: displayName.trim(), phone: phone?.trim() || null, ...(grants ? { grants } : {}) } });
   await batch.commit();
 }

@@ -117,6 +117,24 @@ d('firestore.rules', () => {
     await env.withSecurityRulesDisabled((ctx) => updateDoc(doc(ctx.firestore(), 'examSessions/y__c__e'), { markEntryDeadline: Timestamp.fromMillis(Date.now() - 1000) }));
     await assertFails(setDoc(doc(as('t1'), 'examSessions/y__c__e/sessionSubjects/phy/marks/st1'), mark('t1', 2)));
   });
+  it('the students right lets a teacher or staff add and edit students, never delete or grant themselves', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'users/stf'), { role: 'staff', status: 'active', displayName: 'Staff', grants: { students: true } });
+      await setDoc(doc(db, 'users/stf2'), { role: 'staff', status: 'active', displayName: 'Staff 2' });
+    });
+    const student = { nameEn: 'New', status: 'active', current: { yearId: 'y', classId: 'c', roll: '501' } };
+    await assertSucceeds(setDoc(doc(as('stf'), 'students/new1'), student));
+    await assertSucceeds(setDoc(doc(as('stf'), 'classEnrollments/y__c__501'), { yearId: 'y', classId: 'c', roll: '501', studentId: 'new1' }));
+    await assertSucceeds(updateDoc(doc(as('stf'), 'students/new1'), { nameEn: 'Renamed' }));
+    await assertFails(deleteDoc(doc(as('stf'), 'students/new1')));
+    await assertFails(setDoc(doc(as('stf2'), 'students/new2'), student));             // no right
+    await assertFails(setDoc(doc(as('t1'), 'students/new3'), student));               // teacher without the right
+    await assertFails(updateDoc(doc(as('t1'), 'users/t1'), { grants: { students: true } })); // cannot grant themselves
+    await assertFails(getDoc(doc(as('stf'), 'students/new1/publishedResults/x')));    // results history stays admin-only
+    await assertSucceeds(updateDoc(doc(as('admin'), 'users/t1'), { grants: { students: true } }));
+    await assertSucceeds(setDoc(doc(as('t1'), 'students/new3'), student));
+  });
   it('only the admin deletes teacher profiles, never their own or another admin', async () => {
     await assertFails(deleteDoc(doc(as('t1'), 'users/t2')));
     await assertFails(deleteDoc(doc(as('admin'), 'users/admin')));

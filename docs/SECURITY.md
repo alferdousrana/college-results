@@ -57,3 +57,7 @@ See `FEATURE_FLAGS.md`. The workflow passes inputs via environment variables (no
 * Draft result sheets: deletable. Any other result sheet: only with a reason and typed DELETE; the app first sets `examSessions/{id}.deleting`, and only then do rules allow deleting its marks, results and publication history. The deletion and reason are written to the audit log.
 * Students, subjects, sessions/classes/groups/exam names, teacher profiles: deletable only when nothing refers to them (checked by the app before deleting; rules allow admins to delete these collections). Teacher profiles: admins only, never their own, never an admin; the Firebase Auth account must be removed in the console.
 * Audit log entries can never be deleted.
+
+## Delegated rights (round 15)
+* `users/{uid}.grants.students` (set only by the Super Admin; self-updates cannot touch `grants`). With it a teacher or a `staff`-role user may read, create and update `students` and `classEnrollments` — never delete, never read published-result history.
+* `staff` accounts are created by the Super Admin from the Staff page and cannot enter marks (mark rules require the teacher role and an assignment).

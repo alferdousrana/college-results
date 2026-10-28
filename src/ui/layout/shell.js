@@ -20,7 +20,7 @@ let bell = null;
 function navItems() {
   const { profile, authUser } = getState();
   const key = authUser && profile?.status === AccountStatus.ACTIVE ? profile.role : 'public';
-  return ROUTES.filter((r) => r.nav && r.navFor?.includes(key));
+  return ROUTES.filter((r) => r.nav && (r.navFor?.includes(key) || (key !== 'public' && r.navGrant && profile?.grants?.[r.navGrant] === true)));
 }
 
 function buildFrame() {

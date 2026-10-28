@@ -16,6 +16,7 @@ export default {
   'nav.more': 'আরও',
   'nav.classes': 'শ্রেণি ও বিভাগ',
   'nav.staff': 'কর্মচারী',
+  'nav.home': 'হোম',
   'nav.routines': 'পরীক্ষার সময়সূচি',
   'nav.assignments': 'দায়িত্ব বণ্টন',
   'nav.archive': 'ফলাফল আর্কাইভ',

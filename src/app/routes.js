@@ -19,8 +19,9 @@ export const ROUTES = [
   { path: '/admin/sheet/new', access: 'admin', load: () => import('../pages/admin/sheet-wizard.js') },
   { path: '/admin/sheet', access: 'admin', load: () => import('../pages/admin/sheet-detail.js') },
   { path: '/admin/routines', access: 'admin', load: () => import('../pages/admin/routines.js'), nav: 'nav.routines', icon: 'sheet', navFor: A },
-  { path: '/admin/students', access: 'admin', load: () => import('../pages/admin/students.js'), nav: 'nav.students', icon: 'users', navFor: A },
-  { path: '/admin/students/import', access: 'admin', load: () => import('../pages/admin/student-import.js') },
+  // Students: the Super Admin, plus teachers/staff given the "students" right (navGrant).
+  { path: '/admin/students', access: 'students', load: () => import('../pages/admin/students.js'), nav: 'nav.students', icon: 'users', navFor: A, navGrant: 'students' },
+  { path: '/admin/students/import', access: 'students', load: () => import('../pages/admin/student-import.js') },
   { path: '/admin/teachers', access: 'admin', load: () => import('../pages/admin/teachers.js'), nav: 'nav.teachers', icon: 'users', navFor: A },
   { path: '/admin/staff', access: 'admin', load: () => import('../pages/admin/staff.js'), nav: 'nav.staff', icon: 'users', navFor: A },
   { path: '/admin/classes', access: 'admin', load: () => import('../pages/admin/classes.js'), nav: 'nav.classes', icon: 'book', navFor: A },
@@ -29,6 +30,7 @@ export const ROUTES = [
   { path: '/admin/archive', access: 'admin', load: () => import('../pages/admin/archive.js'), nav: 'nav.archive', icon: 'sheet', navFor: A },
   { path: '/admin/audit', access: 'admin', load: () => import('../pages/admin/audit.js'), nav: 'nav.audit', icon: 'alert', navFor: A },
 
+  { path: '/staff', access: 'staff-home', load: () => import('../pages/staff-home.js'), nav: 'nav.home', icon: 'home', navFor: ['staff'] },
   { path: '/teacher', access: 'teacher', load: () => import('../pages/teacher/dashboard.js'), nav: 'nav.markEntry', icon: 'edit', navFor: ['teacher'] },
   { path: '/teacher/exam', access: 'teacher', load: () => import('../pages/teacher/exam.js') },
   { path: '/teacher/history', access: 'teacher', load: () => import('../pages/teacher/history.js'), nav: 'nav.history', icon: 'sheet', navFor: ['teacher'] },
@@ -36,7 +38,7 @@ export const ROUTES = [
   { path: '/marks', access: 'staff', load: () => import('../pages/mark-entry.js') },
   { path: '/results', access: 'staff', load: () => import('../pages/results-view.js') },
 
-  { path: '/settings', access: 'public', load: () => import('../pages/settings.js'), nav: 'nav.settings', icon: 'settings', navFor: ['public', 'super_admin', 'teacher'] },
+  { path: '/settings', access: 'public', load: () => import('../pages/settings.js'), nav: 'nav.settings', icon: 'settings', navFor: ['public', 'super_admin', 'teacher', 'staff'] },
   { path: '/print-preview', access: 'public', devOnly: true, load: () => import('../pages/print-preview.js') },
 ];
 

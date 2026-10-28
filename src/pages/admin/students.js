@@ -10,6 +10,9 @@ import { selectField } from '../../ui/components/form.js';
 import { actor, friendlyError, nameOf, run } from '../_shared.js';
 import { openStudentForm } from './student-form.js';
 import { fmtDate, fmtNum } from '../../ui/format.js';
+import { getState } from '../../core/store.js';
+
+const isAdminUser = () => getState().profile?.role === 'super_admin';
 
 export const title = 'nav.students';
 const prefKey = 'crms.students.filter';
@@ -41,7 +44,7 @@ async function init(root, query) {
       { key: 'studentCode', label: tt('Student ID', 'আইডি') },
       { key: 'status', label: tt('Status', 'অবস্থা'), render: (r) => h('span', { class: `badge badge--${r.status === 'active' ? 'good' : 'neutral'}` }, r.status) },
       { key: 'a', label: '', render: (r) => h('div', { class: 'row-actions' }, button(tt('Edit', 'সম্পাদনা'), { size: 'sm', onClick: () => openStudentForm({ student: r, cats, fieldDefs, onSaved: reload }) }), statusMenu(r),
-        button(tt('Delete', 'মুছুন'), { size: 'sm', kind: 'danger-ghost', onClick: async () => {
+        !isAdminUser() ? null : button(tt('Delete', 'মুছুন'), { size: 'sm', kind: 'danger-ghost', onClick: async () => {
           if (!(await confirmDialog({ title: tt('Delete {n}?', '{n}-কে মুছবেন?', { n: r.nameEn }), body: tt('Only possible if the student is in no result sheet. Otherwise mark them inactive.', 'শিক্ষার্থী কোনো ফলাফল শিটে না থাকলেই মোছা যাবে। নইলে নিষ্ক্রিয় করুন।'), danger: true, confirmText: tt('Delete', 'মুছুন') }))) return;
           const { deleteStudent } = await import('../../data/repositories/deletion-repository.js');
           if (await run(() => deleteStudent(actor(), r.id), { success: tt('Student deleted', 'শিক্ষার্থী মুছে ফেলা হয়েছে') }) !== undefined) reload();

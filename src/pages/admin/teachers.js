@@ -33,7 +33,7 @@ export function render({ query }) {
       return all.filter((u) => (Array.isArray(status) ? status.includes(u.status) : u.status === status));
     }, (rows) => dataTable({ rows, searchKeys: ['displayName', 'email', 'phone'], empty: status === 'pending' ? tt('No teacher requests are waiting.', 'কোনো শিক্ষকের আবেদন অপেক্ষায় নেই।') : tt('No teachers here.', 'এখানে কোনো শিক্ষক নেই।'),
       columns: [
-        { key: 'displayName', label: tt('Name', 'নাম'), sortable: true, render: (u) => h('div', {}, h('strong', {}, u.displayName), u.requestNote ? h('div', { class: 'muted small' }, u.requestNote) : null) },
+        { key: 'displayName', label: tt('Name', 'নাম'), sortable: true, render: (u) => h('div', {}, h('strong', {}, u.displayName), u.grants?.students ? h('span', { class: 'badge badge--good' }, tt('Can add students', 'শিক্ষার্থী যোগ করতে পারেন')) : null, u.requestNote ? h('div', { class: 'muted small' }, u.requestNote) : null) },
         { key: 'email', label: tt('Email', 'ইমেইল') }, { key: 'phone', label: tt('Phone', 'ফোন') },
         { key: 'createdAt', label: tt('Requested', 'আবেদনের তারিখ'), sortable: true, render: (u) => fmtDate(u.createdAt) },
         { key: 'a', label: '', render: (u) => h('div', { class: 'row-actions' }, actionsFor(u, () => paint(Array.isArray(status) ? 'disabled' : status))) },
@@ -63,16 +63,18 @@ export function render({ query }) {
     const name = field({ label: tt('Full name', 'পূর্ণ নাম'), name: 'en', required: true, value: u.displayName });
     const phone = field({ label: tt('Mobile number', 'মোবাইল নম্বর'), name: 'ep', type: 'tel', value: u.phone ?? '' });
     const inputs = Object.fromEntries(defs.map((d) => [d.key, customFieldInput(d, u.customFields?.[d.key])]));
+    const grantStudents = field({ label: tt('Can add and edit students (not delete)', 'শিক্ষার্থী যোগ ও সম্পাদনা করতে পারবেন (মুছতে নয়)'), name: 'gst', type: 'checkbox', value: u.grants?.students === true });
     openModal({ title: tt('Edit teacher', 'শিক্ষকের তথ্য সম্পাদনা'), content: h('div', {},
       h('div', { class: 'form-grid' }, name.el, phone.el, h('div', { class: 'field' }, h('span', { class: 'field__label' }, tt('Email (sign-in)', 'ইমেইল (লগইন)')), h('p', { class: 'muted' }, u.email))),
       defs.length ? h('div', { class: 'form-grid' }, defs.map((d) => inputs[d.key].el)) : h('p', { class: 'muted small' }, tt('Add more teacher fields in Settings → Teacher fields.', 'আরও তথ্যঘর যোগ করতে সেটিংস → শিক্ষকের তথ্যঘর।')),
+      h('h3', { class: 'form-section' }, tt('Extra permission', 'বাড়তি অনুমতি')), grantStudents.el,
       h('p', { class: 'muted small' }, tt('Email and password belong to the teacher\'s sign-in account and cannot be changed here. The teacher can reset the password from the sign-in page.', 'ইমেইল ও পাসওয়ার্ড শিক্ষকের লগইন অ্যাকাউন্টের অংশ, এখানে বদলানো যায় না। শিক্ষক লগইন পেজ থেকে পাসওয়ার্ড বদলাতে পারবেন।'))),
     actions: [{ label: t('common.cancel'), onClick: () => true }, { label: t('common.save'), kind: 'primary', onClick: async () => {
       if (!name.value) { name.setError(tt('Required', 'আবশ্যক')); return false; }
       const custom = readCustom(defs, inputs);
       if (custom.errors.length) return false;
       const { updateTeacher } = await import('../../data/repositories/users-repository.js');
-      const r = await run(() => updateTeacher(actor(), u.id, { displayName: name.value, phone: phone.value, customFields: { ...(u.customFields ?? {}), ...custom.values } }), { success: tt('Saved', 'সংরক্ষিত') });
+      const r = await run(() => updateTeacher(actor(), u.id, { displayName: name.value, phone: phone.value, customFields: { ...(u.customFields ?? {}), ...custom.values }, grants: { ...(u.grants ?? {}), students: grantStudents.value } }), { success: tt('Saved', 'সংরক্ষিত') });
       if (r !== undefined) after();
       return r !== undefined;
     } }] });

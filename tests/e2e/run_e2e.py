@@ -134,6 +134,17 @@ async def main():
         await page.locator('.print-controls select').nth(1).select_option('9'); await page.wait_for_timeout(500)
         check('seat cards: chosen number per page', await page.locator('.sc-grid').first.locator('.sc-card').count() == 9)
 
+        # Give a teacher the "students" right, then sign in as that teacher
+        await page.goto(f'{BASE}/#/admin/teachers'); await page.wait_for_timeout(1500)
+        await page.locator('.data-table tbody tr', has_text='Kamal Hossain').get_by_role('button', name='Edit').click(); await page.wait_for_timeout(500)
+        await page.locator('dialog[open] input[name=gst]').check(); await page.locator('dialog[open]').get_by_role('button', name='Save').click(); await page.wait_for_timeout(1200)
+        check('teacher list shows the granted right', 'Can add students' in await page.locator('.data-table tbody tr', has_text='Kamal Hossain').inner_text())
+        await signout(page); await persona(page, 'Kamal')
+        check('granted teacher sees Students in the menu', await page.locator('.sidebar a', has_text='Students').count() == 1)
+        await page.goto(f'{BASE}/#/admin/students'); await page.wait_for_timeout(1500)
+        check('granted teacher can open Students but not delete', 'Ayesha' in await page.inner_text('main') and await page.get_by_role('button', name='Delete').count() == 0)
+        await signout(page); await persona(page, 'Demo Administrator')
+
         # Settings sections
         for sec, text in [('institution', 'Logo'), ('studentFields', 'Blood group'), ('grading', 'What these rules mean'), ('print', 'Bangla font'), ('publication', 'Extra check'), ('retention', 'public lookup'), ('features', 'JSON student import')]:
             await page.goto(f'{BASE}/#/settings?section={sec}'); await page.wait_for_timeout(1300)

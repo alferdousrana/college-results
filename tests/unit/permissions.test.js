@@ -31,3 +31,13 @@ describe('route guards', () => {
     expect(homePathFor()).toBe('/teacher');
   });
 });
+
+import { hasGrant } from '../../src/auth/roles.js';
+describe('grants', () => {
+  it('admin always; others only when granted and active', () => {
+    expect(hasGrant({ role: 'super_admin', status: 'active' }, 'students')).toBe(true);
+    expect(hasGrant({ role: 'staff', status: 'active', grants: { students: true } }, 'students')).toBe(true);
+    expect(hasGrant({ role: 'staff', status: 'disabled', grants: { students: true } }, 'students')).toBe(false);
+    expect(hasGrant({ role: 'teacher', status: 'active' }, 'students')).toBe(false);
+  });
+});

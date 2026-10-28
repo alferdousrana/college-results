@@ -2,7 +2,17 @@
  * Roles and permissions — CLIENT MIRROR for showing/hiding interface only.
  * Real enforcement lives in firestore.rules. Never trust these checks for security.
  */
-export const Role = Object.freeze({ SUPER_ADMIN: 'super_admin', TEACHER: 'teacher' });
+export const Role = Object.freeze({ SUPER_ADMIN: 'super_admin', TEACHER: 'teacher', STAFF: 'staff' });
+
+/**
+ * Extra rights the Super Admin can give a teacher or a staff member (users/{uid}.grants).
+ * Enforced by firestore.rules; this mirror only shows/hides the interface.
+ */
+export const Grant = Object.freeze({ STUDENTS: 'students' }); // add and edit students (not delete)
+export function hasGrant(profile, grant) {
+  if (!profile || profile.status !== 'active') return false;
+  return profile.role === 'super_admin' || profile.grants?.[grant] === true;
+}
 export const AccountStatus = Object.freeze({ PENDING: 'pending', ACTIVE: 'active', REJECTED: 'rejected', DISABLED: 'disabled' });
 
 export const Permission = Object.freeze({

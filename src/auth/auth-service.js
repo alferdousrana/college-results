@@ -99,7 +99,7 @@ export async function requestTeacherAccount(input) {
  * Uses a SECONDARY Firebase app instance so the administrator stays signed in.
  * The new teacher should change the temporary password (password-reset email is sent).
  */
-export async function adminCreateTeacher({ displayName, email, phone, tempPassword }, actorId) {
+export async function adminCreateTeacher({ displayName, email, phone, tempPassword, role = Role.TEACHER, grants = null, staffId = null }, actorId) {
   const backend = await getBackend();
   let uid;
   if (backendKind() === 'demo') uid = backend.newId('users');
@@ -118,7 +118,7 @@ export async function adminCreateTeacher({ displayName, email, phone, tempPasswo
   }
   return { uid, profile: {
     displayName: displayName.trim(), email: email.trim().toLowerCase(), phone: phone?.trim() || null,
-    role: Role.TEACHER, status: AccountStatus.ACTIVE, approvedBy: actorId, approvedAt: serverTime(),
+    role, status: AccountStatus.ACTIVE, approvedBy: actorId, approvedAt: serverTime(), ...(grants ? { grants } : {}), ...(staffId ? { staffId } : {}),
     createdAt: serverTime(), updatedAt: serverTime(), createdByAdmin: true,
   } };
 }
