@@ -84,7 +84,7 @@ export function renderShell({ route, content, loading = false }) {
 
   frame.banner.replaceChildren(...(backendKind === 'demo' ? [demoBanner()] : []));
   frame.header.replaceChildren(...[
-    h('a', { class: 'brand', href: '#/' }, h('img', { src: `${import.meta.env.BASE_URL}icons/icon.svg`, alt: '', width: 28, height: 28 }), h('span', {}, t('app.name'))),
+    h('a', { class: 'brand', href: '#/' }, h('img', { src: `${import.meta.env.BASE_URL}icons/logo-192.png`, alt: '', width: 28, height: 28 }), h('span', {}, t('app.name'))),
     authUser ? (indicator ??= syncIndicator()) : null,
     staff ? h('button', { class: 'btn btn--ghost btn--sm', type: 'button', 'aria-label': t('nav.search'), title: 'Ctrl+K',
       onclick: () => import('../components/search-palette.js').then((m) => m.openSearch()) }, svgIcon('search')) : null,

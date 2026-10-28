@@ -9,7 +9,7 @@ const ASSET_CACHE = `crms-assets-${CACHE_VERSION}`;
 const FONT_CACHE = `crms-fonts-${CACHE_VERSION}`;
 // BASE is '/' on Vercel and '/<repo>/' on GitHub Pages (taken from the registration scope).
 const BASE = new URL(self.registration.scope).pathname;
-const SHELL_URLS = ['', 'index.html', 'manifest.webmanifest', 'icons/icon.svg', 'icons/maskable.svg'].map((p) => BASE + p);
+const SHELL_URLS = ['', 'index.html', 'manifest.webmanifest', 'icons/favicon-48.png', 'icons/logo-192.png', 'icons/logo-512.png'].map((p) => BASE + p);
 
 self.addEventListener('install', (event) => {
   event.waitUntil(Promise.all([
