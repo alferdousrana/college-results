@@ -11,7 +11,7 @@ import { actor, friendlyError, nameOf, run } from '../_shared.js';
 import { fmtDate } from '../../ui/format.js';
 import { cellKey, sortedDays, scheduleCheck, bnDigits, bnDate } from '../../domain/routine.js';
 import { subjectDefinition, studentSubjectIds } from '../../domain/session-calc.js';
-import { subjectLabelForClass } from '../../domain/paper-scheme.js';
+import { allExamEntries, examEntries, formFromIds, hasTwoPapers, baseSubjectId, DEFAULT_PAPER_FORM } from '../../domain/paper-scheme.js';
 import { ids } from '../../data/paths.js';
 
 export const title = 'nav.routines';
@@ -66,12 +66,28 @@ function editor(id) {
       const days = st.days.filter((d) => d.date).map((d) => ({ id: d.id, date: d.date, cells: Object.fromEntries(Object.entries(d.cells).filter(([, v]) => v?.length)) }));
       if (await run(() => repo.saveRoutine(actor(), id, { title: st.title, note: st.note, columns: st.columns, slots: st.slots, days, duties: st.duties, committee: st.committee.filter((m) => m.name), dutyPrefix: st.dutyPrefix, admit: st.admit, seat: st.seat }), { success: tt('Routine saved', 'সময়সূচি সংরক্ষিত') }) !== undefined) { dirty = false; saveState.hidden = true; }
     };
+    // "1st and 2nd paper together" is printed as such in the routine (the code alone does not say it).
+    const togetherName = (n = {}) => ({ en: `${n.en ?? ''} 1st & 2nd Paper`.trim(), bn: n.bn ? `${n.bn} ১ম ও ২য় পত্র` : null });
+    const classSubjects = (sid) => { const { classId } = parse(sid); return cats.subjects.filter((x) => x.active !== false && (!x.classIds?.length || x.classIds.includes(classId))).sort((a, b2) => (a.order ?? 0) - (b2.order ?? 0)); };
+    /** Subjects that can be put in one column: the result sheet's subjects, or every paper form of the class's subjects. */
     const defsOf = (sid) => {
       const b = bundles.get(sid);
-      if (b) return Object.fromEntries(b.subjects.map((x) => [x.id, subjectDefinition(x)]));
-      const { classId } = parse(sid);
-      return Object.fromEntries(cats.subjects.filter((x) => x.active !== false && (!x.classIds?.length || x.classIds.includes(classId)))
-        .sort((a, b2) => (a.order ?? 0) - (b2.order ?? 0)).map((x) => { const l = subjectLabelForClass(x, classId); return [x.id, { id: x.id, name: l.name, code: l.code }]; }));
+      if (b) return Object.fromEntries(b.subjects.map((x) => { const d = subjectDefinition(x); return [x.id, x.definition?.paperScheme === 'combined' ? { ...d, name: togetherName(d.name), together: true } : d]; }));
+      return Object.fromEntries(classSubjects(sid).flatMap((x) => allExamEntries(x).map((e) => [e.id, { id: e.id, baseId: x.id, name: e.paperScheme === 'combined' ? togetherName(e.name) : e.name, code: e.code, together: e.paperScheme === 'combined' }])));
+    };
+    /** Ids scheduled anywhere in one column. */
+    const usedIn = (sid) => { const out = new Set(); for (const d of st.days) for (const sl of st.slots) for (const x of d.cells[cellKey(sl.id, sid)] ?? []) out.add(x); return out; };
+    /** What must be in the routine for one column: the sheet's subjects, or each subject in the paper form chosen (default: 1st and 2nd paper separately). */
+    const expectedIds = (sid) => {
+      if (bundles.get(sid)) return Object.keys(defsOf(sid));
+      const used = [...usedIn(sid)];
+      return classSubjects(sid).flatMap((x) => (hasTwoPapers(x) ? examEntries(x, formFromIds(x, used) ?? DEFAULT_PAPER_FORM) : examEntries(x)).map((e) => e.id));
+    };
+    /** Subjects scheduled both together and as separate papers in one column. */
+    const conflictsIn = (sid) => {
+      if (bundles.get(sid)) return [];
+      const used = usedIn(sid);
+      return classSubjects(sid).filter((x) => hasTwoPapers(x) && used.has(x.id) && (used.has(`${x.id}__p1`) || used.has(`${x.id}__p2`)));
     };
     const subjectLabel = (sid, subId) => { const d = defsOf(sid)[subId]; return d ? `${L(d.name, 'bn') || L(d.name, 'en')}${d.code ? ` - ${bnDigits(d.code)}` : ''}` : subId; };
 
@@ -109,9 +125,18 @@ function editor(id) {
         const cell = (day, sl, col) => {
           const key = cellKey(sl.id, col.sessionId);
           const ids = day.cells[key] ?? [];
-          const all = Object.keys(defsOf(col.sessionId));
+          const defs = defsOf(col.sessionId);
+          const used = usedIn(col.sessionId);
+          // A subject is examined either as its 1st and 2nd paper or as both papers together:
+          // once one way is in the routine, the other way is not offered for this column.
+          const blocked = (x) => {
+            const d = defs[x];
+            if (!d?.baseId) return false;
+            return d.together ? (used.has(`${d.baseId}__p1`) || used.has(`${d.baseId}__p2`)) : used.has(d.baseId);
+          };
+          const all = Object.keys(defs).filter((x) => !ids.includes(x) && !blocked(x));
           const add = h('select', { class: 'input input--sm', 'aria-label': tt('Add subject', 'বিষয় যোগ'), onchange: (e) => { if (!e.target.value) return; day.cells[key] = [...ids, e.target.value]; mark(); paint(); } },
-            h('option', { value: '' }, tt('+ subject', '+ বিষয়')), all.filter((x) => !ids.includes(x)).map((x) => h('option', { value: x }, subjectLabel(col.sessionId, x))));
+            h('option', { value: '' }, tt('+ subject', '+ বিষয়')), all.map((x) => h('option', { value: x }, subjectLabel(col.sessionId, x))));
           return h('td', {}, h('div', { class: 'rt-cell' }, ids.map((x) => h('span', { class: 'chip' }, subjectLabel(col.sessionId, x),
             h('button', { class: 'chip__x', type: 'button', 'aria-label': tt('Remove', 'সরান'), onclick: () => { day.cells[key] = ids.filter((y) => y !== x); mark(); paint(); } }, '×'))), add));
         };
@@ -124,15 +149,20 @@ function editor(id) {
             h('td', {}, button(tt('Remove', 'সরান'), { size: 'sm', kind: 'danger-ghost', onClick: () => { st.days.splice(i, 1); mark(); paint(); } }))))))) : h('p', { class: 'notice' }, tt('Add at least one column (class and examination) above.', 'উপরে অন্তত একটি কলাম (শ্রেণি ও পরীক্ষা) যোগ করুন।'));
         // Check
         const checks = st.columns.map((c) => {
-          const r = scheduleCheck(st, c.sessionId, Object.keys(defsOf(c.sessionId)));
+          const r = scheduleCheck(st, c.sessionId, expectedIds(c.sessionId));
+          const clash = conflictsIn(c.sessionId);
           return h('li', {}, h('strong', {}, `${c.label}: `), r.missing.length ? h('span', { class: 'text-bad' }, `${tt('not in the routine', 'সূচিতে নেই')}: ${r.missing.map((x) => subjectLabel(c.sessionId, x)).join(', ')}`) : h('span', { class: 'text-good' }, tt('every subject is scheduled', 'সব বিষয় সূচিতে আছে')),
-            r.repeated.length ? h('span', { class: 'muted' }, ` · ${tt('twice', 'দুবার')}: ${r.repeated.map((x) => subjectLabel(c.sessionId, x)).join(', ')}`) : null);
+            r.repeated.length ? h('span', { class: 'muted' }, ` · ${tt('twice', 'দুবার')}: ${r.repeated.map((x) => subjectLabel(c.sessionId, x)).join(', ')}`) : null,
+            clash.length ? h('span', { class: 'text-bad' }, ` · ${tt('both together and as separate papers', 'একসাথে ও আলাদা পত্র দুভাবেই আছে')}: ${clash.map((x) => L(x.name, 'bn') || L(x.name)).join(', ')}`) : null);
         });
         box.replaceChildren(
           h('div', { class: 'form-grid' }, titleF.el, noteF.el),
           h('h3', { class: 'form-section' }, tt('Classes and examinations (one column each)', 'শ্রেণি ও পরীক্ষা (প্রতিটি একটি কলাম)')), colBox,
           h('h3', { class: 'form-section' }, tt('Exam times', 'পরীক্ষার সময়')), slotBox,
-          h('h3', { class: 'form-section' }, tt('Dates and subjects', 'তারিখ ও বিষয়')), grid,
+          h('h3', { class: 'form-section' }, tt('Dates and subjects', 'তারিখ ও বিষয়')),
+          st.columns.length ? h('p', { class: 'muted small' }, tt('A subject with a 1st and 2nd paper is normally two exams: add "… 1st Paper" and "… 2nd Paper" (100 marks each). To examine both papers in one exam (e.g. 100 marks in Class Eleven), add "… 1st & 2nd Paper" instead. The result sheet created later follows what is chosen here.',
+            'যে বিষয়ের ১ম ও ২য় পত্র আছে, সাধারণত তা দুটি আলাদা পরীক্ষা: "… ১ম পত্র" ও "… ২য় পত্র" যোগ করুন (প্রতিটি ১০০ নম্বর)। দুই পত্র একসাথে একটি পরীক্ষায় নিতে (যেমন একাদশে ১০০ নম্বর) তার বদলে "… ১ম ও ২য় পত্র" যোগ করুন। পরে ফলাফল শিট তৈরি করলে এখানে যেভাবে বাছা হয়েছে সেভাবেই হবে।')) : null,
+          grid,
           st.columns.length ? button(tt('Add date', 'তারিখ যোগ'), { icon: 'plus', onClick: () => {
             const last = sortedDays(st).at(-1)?.date; let next = '';
             if (last) { const d = new Date(`${last}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 1); next = d.toISOString().slice(0, 10); }
@@ -176,7 +206,7 @@ function editor(id) {
       }
       return roster.sort((a, b) => order(a.groupId) - order(b.groupId) || Number(a.roll) - Number(b.roll))
         .map((e) => ({ name: e.name?.bn || e.name?.en || '', roll: e.roll, groupLabel: `${L(cats.groups.find((x) => x.id === e.groupId)?.name, 'bn')} বিভাগ`, groupId: e.groupId, groupName: L(cats.groups.find((x) => x.id === e.groupId)?.name, 'bn'),
-          fourthName: e.optionalSubjectId ? L(defs[e.optionalSubjectId]?.name, 'bn') || '' : '', subjectIds: e.subjectIds }));
+          fourthName: e.optionalSubjectId ? L((cats.subjects.find((x) => x.id === baseSubjectId(e.optionalSubjectId)) ?? defs[e.optionalSubjectId])?.name, 'bn') || '' : '', subjectIds: e.subjectIds }));
     }
 
     async function attendanceTab(panel) {

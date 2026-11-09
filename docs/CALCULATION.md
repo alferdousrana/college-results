@@ -45,6 +45,13 @@ Grade bands (validated for gaps, overlaps and one fail band), GPA maximum, decim
 ## Tie handling (deterministic)
 Students are ordered by the configured keys (default: passed first, GPA, total marks). Students equal on every key share a position; with the "never share" method the lower roll comes first. The order is the same on every calculation for the same inputs.
 
+## 1st and 2nd paper per examination (Nov 2026)
+A catalogue subject with both `papers.first` and `papers.second` codes is expanded when a result sheet is created (`src/domain/paper-scheme.js`):
+* `separate` (default): sheet subjects `x__p1` and `x__p2`, each with the subject's components (e.g. 100 marks each) and its own code, linked with `combine: { key: x, paper: '1st'|'2nd' }` so the rules below make one graded subject.
+* `combined`: one sheet subject `x` (both papers in one exam), codes "174, 175".
+* `first` / `second`: one paper only (`x__p1` / `x__p2`), graded on its own.
+Students' choices and 4th subject stay catalogue ids (`x`); `studentSubjectIds`, `subjectRole` and the 4th-subject flag map `x__p1`/`x__p2` back with `baseSubjectId`. The form comes from the routine when it schedules the subject, otherwise `separate`, and can be changed in wizard step 2.
+
 ## Combined papers (round 4)
 Bangla 1st/2nd and English 1st/2nd are separate subjects for mark entry and teacher assignment, each with `combine: { key, name, paper }`. The engine (`combine.js`) merges papers with the same key into one subject: full and obtained marks are summed, the grade comes from the combined percentage, and the combined subject passes only if every paper meets its own component pass marks (plus `combine.passMarks` on the total, if set). GPA counts the combined subject once. Missing marks in either paper keep the result incomplete.
 

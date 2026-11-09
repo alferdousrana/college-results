@@ -57,13 +57,14 @@ async function init(root) {
         const rows = all.filter((a) => a.subjectId === s.id && subjectClasses.includes(a.classId));
         // Merge per teacher: which of the subject's classes they are assigned for.
         const byTeacher = new Map();
-        rows.forEach((a) => { if (!byTeacher.has(a.teacherId)) byTeacher.set(a.teacherId, { name: a.teacherName ?? a.teacherId, ids: [], classIds: [] }); const x = byTeacher.get(a.teacherId); x.ids.push(a.id); x.classIds.push(a.classId); });
+        rows.forEach((a) => { if (!byTeacher.has(a.teacherId)) byTeacher.set(a.teacherId, { name: a.teacherName ?? a.teacherId, ids: [], classIds: [], paper: a.paper ?? null }); const x = byTeacher.get(a.teacherId); x.ids.push(a.id); x.classIds.push(a.classId); });
         const alsoIn = sec.id.startsWith('_') ? [] : (s.groupIds ?? []).filter((g) => g !== sec.id && groups.some((x) => x.id === g)).map((g) => L(groups.find((x) => x.id === g).name));
         return h('li', { class: 'assign-row' },
           h('div', { class: 'assign-row__subject' }, h('strong', {}, L(s.name)), s.code ? h('span', { class: 'muted small' }, ` ${s.code}`) : null,
             alsoIn.length && alsoIn.length < groups.length - 1 ? h('div', { class: 'muted small' }, tt('also in {g}', '{g}-এও আছে', { g: alsoIn.join(', ') })) : null),
           h('div', { class: 'assign-row__teachers' }, byTeacher.size ? h('ul', { class: 'chip-list' }, [...byTeacher.entries()].map(([tid, x]) => h('li', { class: 'chip' },
-            x.name, x.classIds.length < subjectClasses.length ? h('span', { class: 'muted small' }, ` (${x.classIds.map(className).join(', ')} ${tt('only', 'শুধু')})`) : null,
+            x.name, x.paper ? h('span', { class: 'muted small' }, ` (${x.paper === '1st' ? tt('1st paper', '১ম পত্র') : tt('2nd paper', '২য় পত্র')})`) : null,
+            x.classIds.length < subjectClasses.length ? h('span', { class: 'muted small' }, ` (${x.classIds.map(className).join(', ')} ${tt('only', 'শুধু')})`) : null,
             h('button', { class: 'chip__x', type: 'button', 'aria-label': tt('Remove {n}', '{n} সরান', { n: x.name }), onclick: async () => {
               if (!(await confirmDialog({ title: tt('Remove {n} from {s}?', '{s} থেকে {n}-কে সরাবেন?', { n: x.name, s: L(s.name) }), body: tt('Removed for all classes. Existing result sheets are not changed; change them on the sheet page.', 'সব শ্রেণি থেকে সরবে। বিদ্যমান ফলাফল শিট বদলাবে না; শিট পৃষ্ঠায় বদলান।'), confirmText: tt('Remove', 'সরান') }))) return;
               if (await run(async () => { for (const id of x.ids) await repo.removeAssignment(actor(), id); }, { success: tt('Removed', 'সরানো হয়েছে') }) !== undefined) paint();
@@ -76,14 +77,19 @@ async function init(root) {
   function assign(subject, subjectClasses, existing) {
     if (!teachers.length) { openModal({ title: tt('No approved teachers', 'অনুমোদিত শিক্ষক নেই'), content: h('p', {}, tt('Approve teachers first on the Teachers page.', 'আগে শিক্ষক পৃষ্ঠায় শিক্ষক অনুমোদন দিন।')) }); return; }
     const sel = selectField({ label: tt('Approved teacher', 'অনুমোদিত শিক্ষক'), name: 'at', options: teachers.map((x) => ({ value: x.id, label: x.displayName })) });
+    // Subjects with a 1st and 2nd paper: one teacher for both (usual) or a different teacher per paper.
+    const paper = subject.papers?.first && subject.papers?.second ? selectField({ label: tt('Papers', 'পত্র'), name: 'apaper', options: [
+      { value: '', label: tt('Both papers ({a}, {b})', 'দুই পত্রই ({a}, {b})', { a: subject.papers.first, b: subject.papers.second }) },
+      { value: '1st', label: tt('1st paper only ({a})', 'শুধু ১ম পত্র ({a})', { a: subject.papers.first }) },
+      { value: '2nd', label: tt('2nd paper only ({b})', 'শুধু ২য় পত্র ({b})', { b: subject.papers.second }) }] }) : null;
     const cls = subjectClasses.length > 1 ? checkGroup({ label: tt('For classes', 'যে শ্রেণিগুলোর জন্য'), name: 'acls', options: subjectClasses.map((id) => ({ value: id, label: className(id) })), values: subjectClasses }) : null;
-    openModal({ title: tt('Assign {s}', '{s}-এর দায়িত্ব দিন', { s: L(subject.name) }), size: 's', content: h('div', {}, sel.el, cls?.el,
+    openModal({ title: tt('Assign {s}', '{s}-এর দায়িত্ব দিন', { s: L(subject.name) }), size: 's', content: h('div', {}, sel.el, paper?.el, cls?.el,
       cls ? h('p', { class: 'muted small' }, tt('Usually the same teacher takes the subject in every class, so all classes are ticked.', 'সাধারণত একই শিক্ষক সব শ্রেণিতে বিষয়টি নেন, তাই সব শ্রেণি বাছা আছে।')) : null),
     actions: [{ label: t('common.cancel'), onClick: () => true }, { label: tt('Assign', 'দায়িত্ব দিন'), kind: 'primary', onClick: async () => {
       const teacher = teachers.find((x) => x.id === sel.value);
       const targets = (cls ? cls.value : subjectClasses).filter((c) => !existing.some((a) => a.teacherId === teacher.id && a.classId === c));
       if (!targets.length) { toast(tt('{n} is already assigned for the chosen classes.', '{n} আগেই বাছা শ্রেণিগুলোর দায়িত্বে আছেন।', { n: teacher.displayName }), 'info'); return true; }
-      const ok = await run(async () => { for (const classId of targets) await repo.addAssignment(actor(), { teacher, subjectId: subject.id, classId }); },
+      const ok = await run(async () => { for (const classId of targets) await repo.addAssignment(actor(), { teacher, subjectId: subject.id, classId, paper: paper?.value || null }); },
         { success: tt('{n} assigned to {s}', '{n}-কে {s}-এর দায়িত্ব দেওয়া হয়েছে', { n: teacher.displayName, s: L(subject.name) }) });
       if (ok === undefined) return false;
       paint();

@@ -13,12 +13,13 @@ export async function listAssignments({ teacherId = null, subjectId = null, clas
   return (await b.list(C.TEACHER_ASSIGNMENTS, { where, limit: 1000 })).items;
 }
 
-export async function addAssignment(actor, { teacher, subjectId, classId }) {
+/** paper: null = both papers (default), '1st' or '2nd' = that paper only (subjects with two paper codes). */
+export async function addAssignment(actor, { teacher, subjectId, classId, paper = null }) {
   if (teacher.status !== 'active' || teacher.role !== 'teacher') throw new Error('Only approved teachers can be assigned.');
   const b = await getBackend();
   const id = ids.teacherAssignment(teacher.id, subjectId, classId);
   const batch = b.batch();
-  batch.set(`${C.TEACHER_ASSIGNMENTS}/${id}`, { teacherId: teacher.id, teacherName: teacher.displayName, subjectId, classId, createdAt: serverTime() });
+  batch.set(`${C.TEACHER_ASSIGNMENTS}/${id}`, { teacherId: teacher.id, teacherName: teacher.displayName, subjectId, classId, paper: paper === '1st' || paper === '2nd' ? paper : null, createdAt: serverTime() });
   addAudit(b, batch, { action: AuditAction.ASSIGNMENT_CHANGED, actor, targetPath: `${C.TEACHER_ASSIGNMENTS}/${id}`, after: { assigned: true } });
   await batch.commit();
 }

@@ -3,6 +3,7 @@ import { computeSubjectResult } from './subject-result.js';
 import { roundTo, preciseSum } from './rounding.js';
 import { gradeForGpa, failBand } from './grading-scale.js';
 import { combineSubjectResults } from './combine.js';
+import { baseSubjectId } from '../paper-scheme.js';
 
 /**
  * Computes one student's examination result.
@@ -16,7 +17,8 @@ import { combineSubjectResults } from './combine.js';
 export function computeStudentResult({ subjects, marks, policy, scale, optionalSubjectId = null }) {
   const paperResults = subjects.map((s) => ({
     ...computeSubjectResult(s, marks?.[s.id], policy, scale),
-    isOptional: s.id === optionalSubjectId,
+    // The 4th subject is chosen by catalogue id; both of its papers (biology__p1, biology__p2) are optional.
+    isOptional: optionalSubjectId != null && (s.id === optionalSubjectId || baseSubjectId(s.id) === optionalSubjectId),
   }));
   // Papers sharing subject.combine.key (Bangla 1st + 2nd …) become one graded subject.
   const subjectResults = combineSubjectResults(paperResults, subjects, policy, scale);

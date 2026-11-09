@@ -18,16 +18,24 @@ export function buildSheetColumns(subjects, subjectColumns = {}) {
   const byKey = new Map();
   for (const s of subjects) {
     const isComb = Boolean(s.combine?.key);
-    const key = isComb ? `combo_${s.combine.key}` : (subjectColumns[s.id] || s.id);
+    // Combined subjects normally get their own column; alternatives that share a column code
+    // (e.g. Sociology / Social Work, each as 1st + 2nd paper) print together in one column.
+    const shared = subjectColumns[s.id];
+    const key = isComb ? `combo_${shared && shared !== s.id ? shared : s.combine.key}` : (shared || s.id);
     if (!byKey.has(key)) {
-      const col = { key, combined: isComb, label: isComb ? s.combine.name : null, names: [], ids: [], papers: [], codes: [] };
+      const col = { key, combined: isComb, label: null, labels: [], comboIds: [], names: [], ids: [], papers: [], codes: [] };
       byKey.set(key, col); cols.push(col);
     }
     const col = byKey.get(key);
     if (s.code) col.codes.push(s.code);
-    if (isComb) col.papers.push({ id: s.id, paper: s.combine.paper });
-    else { col.ids.push(s.id); col.names.push(s.name); }
+    if (isComb) {
+      const cid = `combo_${s.combine.key}`;
+      if (!col.comboIds.includes(cid)) { col.comboIds.push(cid); col.labels.push(s.combine.name); }
+      const slot = col.papers.find((p) => p.paper === s.combine.paper);
+      if (slot) slot.ids.push(s.id); else col.papers.push({ id: s.id, ids: [s.id], paper: s.combine.paper });
+    } else { col.ids.push(s.id); col.names.push(s.name); }
   }
+  for (const col of cols) if (col.combined) col.label = col.labels[0] ?? null;
   return cols;
 }
 
@@ -42,7 +50,7 @@ export function renderResultSheet({ vms, subjects, exam, groupLabel = null, subj
   const subHeads = (col) => (col.combined
     ? [...(C.papers ? col.papers.map((p) => Lb.papers[p.paper] ?? p.paper) : []), ...(C.total ? [Lb.total] : []), ...(C.grade ? [Lb.grade] : []), ...(C.gradePoint ? [Lb.gp] : [])]
     : [...(S.marks ? [Lb.marks] : []), ...(S.grade ? [Lb.grade] : []), ...(S.gradePoint ? [Lb.gp] : [])]);
-  const label = (col) => [col.combined ? pick(col.label, lang) : col.names.map((x) => pick(x, lang)).join(' / '),
+  const label = (col) => [(col.combined ? col.labels : col.names).map((x) => pick(x, lang)).join(' / '),
     s.sheet.showCodes && col.codes.length ? h('span', { class: 'rs-code' }, n(col.codes.join(', '))) : null];
   const tailHeads = [T.totalMarks ? Lb.totalMarks : null, T.gpa ? Lb.gpa : null, T.grade ? Lb.grade : null, T.merit ? Lb.merit : null].filter(Boolean);
 
@@ -56,12 +64,12 @@ export function renderResultSheet({ vms, subjects, exam, groupLabel = null, subj
   const body = sorted.map((vm, index) => {
     const byId = Object.fromEntries(vm.subjects.map((x) => [x.id, x]));
     const cells = columns.flatMap((col) => {
-      const r = col.combined ? byId[col.key] : col.ids.map((id) => byId[id]).find(Boolean);
+      const r = (col.combined ? col.comboIds : col.ids).map((id) => byId[id]).find(Boolean);
       const k = subHeads(col).length;
       if (!r) return Array.from({ length: k }, () => h('td', { class: 'is-na' }, ''));
       const opt = r.isOptional ? '*' : '';
       if (col.combined) {
-        const paperCells = C.papers ? col.papers.map((p) => { const part = r.parts?.find((x) => x.id === p.id); return h('td', {}, part?.state === 'ABSENT' ? n('AB') : n(part?.obtained, 0)); }) : [];
+        const paperCells = C.papers ? col.papers.map((p) => { const part = r.parts?.find((x) => p.ids.includes(x.id)); return h('td', {}, part?.state === 'ABSENT' ? n('AB') : n(part?.obtained, 0)); }) : [];
         return [...paperCells, ...(C.total ? [h('td', { class: 'rs-total' }, r.state === 'ABSENT' ? n('AB') : n(r.obtained, 0))] : []),
           ...(C.grade ? [h('td', {}, r.grade ?? '')] : []), ...(C.gradePoint ? [h('td', {}, n(r.point))] : [])];
       }

@@ -14,7 +14,8 @@ import { navigate } from '../../app/router.js';
 import { actor, byId, friendlyError, nameOf } from '../_shared.js';
 import { validateForSharing, checkStudentChoices, subjectRole } from '../../domain/session-calc.js';
 import { ExamState } from '../../domain/exam-lifecycle.js';
-import { subjectLabelForClass } from '../../domain/paper-scheme.js';
+import { examEntries, hasTwoPapers, formFromIds, baseSubjectId, assignmentCovers, DEFAULT_PAPER_FORM } from '../../domain/paper-scheme.js';
+import { scheduledIds } from '../../domain/routine.js';
 import { shareFlow } from './share-flow.js';
 
 export const title = 'dash.createSheet';
@@ -49,7 +50,10 @@ async function init(sid, body) {
   const tById = byId(teachers);
   const st = { sid, step: 0, dirty: false, details: { yearId: cats.years.find((y) => y.active)?.id ?? cats.years.at(-1)?.id ?? '', classId: '', examDefId: '', titleEn: '', titleBn: '', heldOn: '', startDate: '', endDate: '', notes: '' },
     groupIds: [], groupSubjects: {}, groupRoles: {}, groupRules: {}, teachers: {}, roster: new Map(), rosterLoadedFor: null,
-    keepEmpty: {}, showEmpty: {} }; // keepEmpty[g]: subjects with no students the admin ticked back in
+    keepEmpty: {}, showEmpty: {}, // keepEmpty[g]: subjects with no students the admin ticked back in
+    // 1st/2nd paper: how each subject with two papers is examined (catalogue id → 'separate' | 'combined' | 'first' | 'second').
+    // paperForms = chosen here; routineForms = taken from the examination routine; default: separate papers.
+    paperForms: {}, routineForms: {}, routineFor: null, assign: null };
 
   if (sid) {
     const b = await sessions.loadSessionBundle(sid);
@@ -57,9 +61,12 @@ async function init(sid, body) {
     const s = b.session;
     Object.assign(st.details, { yearId: s.yearId, classId: s.classId, examDefId: s.examDefId, titleEn: s.title?.en ?? '', titleBn: s.title?.bn ?? '', heldOn: s.heldOn ?? '', startDate: s.startDate ?? '', endDate: s.endDate ?? '', notes: s.notes ?? '', markEntryDeadline: toLocalInput(s.markEntryDeadline) });
     st.groupIds = b.sheets.map((x) => x.id);
+    // The sheet stores exam entries (physics__p1, physics__p2 …); the wizard works with catalogue subjects.
+    const savedIds = b.subjects.map((x) => x.id);
+    for (const cs of cats.subjects) { const f = formFromIds(cs, savedIds); if (f) st.paperForms[cs.id] = f; }
     b.sheets.forEach((x) => {
-      st.groupSubjects[x.id] = [...(x.subjectIds ?? [])];
-      st.groupRoles[x.id] = { ...(x.subjectRoles ?? {}) };
+      st.groupSubjects[x.id] = [...new Set((x.subjectIds ?? []).map(baseSubjectId))];
+      st.groupRoles[x.id] = Object.fromEntries(Object.entries(x.subjectRoles ?? {}).map(([k, v]) => [baseSubjectId(k), v]));
       st.groupRules[x.id] = { choiceCount: x.choiceCount ?? 0, requiresFourth: Boolean(x.requiresFourth), examsPerStudent: x.examsPerStudent ?? null };
     });
     b.subjects.forEach((x) => { st.teachers[x.id] = [...(x.teacherIds ?? [])]; });
@@ -72,6 +79,28 @@ async function init(sid, body) {
   const cls = () => cats.classes.find((c) => c.id === st.details.classId);
   const subjectsFor = (groupId) => cats.subjects.filter((s) => s.active !== false && (!s.classIds?.length || s.classIds.includes(st.details.classId)) && (!s.groupIds?.length || s.groupIds.includes(groupId)));
   const chosenSubjectIds = () => [...new Set(st.groupIds.flatMap((g) => st.groupSubjects[g] ?? []))];
+  // ---- 1st and 2nd paper ----
+  const catSubject = (id) => cats.subjects.find((x) => x.id === baseSubjectId(id));
+  const formOf = (id) => st.paperForms[id] ?? st.routineForms[id] ?? DEFAULT_PAPER_FORM;
+  /** Exam entries of one catalogue subject on this sheet (two papers, both together, or one paper). */
+  const entriesOf = (id) => { const s = catSubject(id); return s ? (hasTwoPapers(s) ? examEntries(s, formOf(id)) : examEntries(s)) : [{ id, name: { en: id }, code: null, paperScheme: null, combine: null }]; };
+  const examIdsOf = (id) => entriesOf(id).map((e) => e.id);
+  const chosenExamIds = () => [...new Set(chosenSubjectIds().flatMap(examIdsOf))];
+  const entryById = (eid) => entriesOf(baseSubjectId(eid)).find((e) => e.id === eid) ?? entriesOf(eid)[0];
+  /** Reads how the examination routine schedules each subject's papers (once per year/class/exam). */
+  async function loadRoutineForms(force = false) {
+    const d = st.details;
+    if (!d.yearId || !d.classId || !d.examDefId) return;
+    const [{ listRoutines }, { ids }] = await Promise.all([import('../../data/repositories/routine-repository.js'), import('../../data/paths.js')]);
+    const sidKey = ids.session(d.yearId, d.classId, d.examDefId);
+    if (!force && st.routineFor === sidKey) return;
+    const used = scheduledIds(await listRoutines(), sidKey);
+    st.routineForms = {};
+    for (const cs of cats.subjects) { const f = formFromIds(cs, used); if (f) st.routineForms[cs.id] = f; }
+    st.routineFor = sidKey;
+  }
+  /** Teachers for an exam entry from the Assignments page (a teacher may be assigned one paper only). */
+  const defaultTeachers = (eid) => (st.assign ?? []).filter((a) => assignmentCovers(a, eid) && tById[a.teacherId]?.status === 'active').map((a) => a.teacherId);
 
   // ---- Class roster (shared by the Subjects and Students steps) ----
   const rosterKey = () => `${st.details.yearId}|${st.details.classId}`;
@@ -166,7 +195,7 @@ async function init(sid, body) {
     }
     if (st.step === 1 && st.groupIds.some((g) => !(st.groupSubjects[g] ?? []).length)) { toast(tt('Every group needs at least one subject.', 'প্রতিটি বিভাগে অন্তত একটি বিষয় দরকার।'), 'error'); return false; }
     if (st.step === 2) {
-      const missing = chosenSubjectIds().filter((s) => !(st.teachers[s] ?? []).length);
+      const missing = chosenExamIds().filter((s) => !(st.teachers[s] ?? []).length);
       if (missing.length) toast(tt('{n} subject(s) have no teacher yet. You can save the draft, but sharing needs a teacher for every subject.', '{n}টি বিষয়ে এখনো শিক্ষক নেই। খসড়া রাখা যাবে, তবে শেয়ার করতে সব বিষয়ে শিক্ষক লাগবে।', { n: missing.length }), 'info');
     }
     return true;
@@ -204,7 +233,16 @@ async function init(sid, body) {
       if (!year.input.value || !klass.input.value || !exam.input.value) return;
       try {
         const [{ listRoutines }, { examDateRange }, { ids }] = await Promise.all([import('../../data/repositories/routine-repository.js'), import('../../domain/routine.js'), import('../../data/paths.js')]);
-        const range = examDateRange(await listRoutines(), ids.session(year.input.value, klass.input.value, exam.input.value));
+        const allRoutines = await listRoutines();
+        const sidKey = ids.session(year.input.value, klass.input.value, exam.input.value);
+        // How the routine schedules 1st/2nd papers (together or separately) is used in step 2.
+        if (st.routineFor !== sidKey) {
+          const used = scheduledIds(allRoutines, sidKey);
+          st.routineForms = {};
+          for (const cs of cats.subjects) { const f = formFromIds(cs, used); if (f) st.routineForms[cs.id] = f; }
+          st.routineFor = sidKey;
+        }
+        const range = examDateRange(allRoutines, sidKey);
         if (!range) { routineNote.hidden = true; return; }
         if (!start.input.value) start.input.value = range.first;
         if (!end.input.value) end.input.value = range.last;
@@ -228,6 +266,8 @@ async function init(sid, body) {
     return (s.components ?? []).filter((c) => c.enabled !== false).map((c) => `${c.label} ${c.maxMarks}${c.passMarks != null ? ` (${tt('pass', 'পাস')} ${c.passMarks})` : ''}`).join(' · ');
   }
 
+  const PAPER_LABELS = () => ({ separate: tt('1st and 2nd paper separately', '১ম ও ২য় পত্র আলাদা'), combined: tt('1st & 2nd paper together (one exam)', '১ম ও ২য় পত্র একসাথে (একটি পরীক্ষা)'),
+    first: tt('1st paper only', 'শুধু ১ম পত্র'), second: tt('2nd paper only', 'শুধু ২য় পত্র') });
   const ROLE_LABELS = () => ({ compulsory: tt('Compulsory', 'আবশ্যিক'), choice: tt('Student chooses', 'শিক্ষার্থী বাছবে'), fourth: tt('4th subject only', 'শুধু ৪র্থ বিষয়') });
   function ensureGroupDefaults(g) {
     const options = subjectsFor(g);
@@ -241,8 +281,10 @@ async function init(sid, body) {
   }
 
   function stepSubjects() {
-    const intro = h('p', { class: 'muted' }, tt('For each group choose the subjects, whether each is compulsory or chosen by the student, and the group rules. Papers such as Bangla 1st and 2nd are separate subjects and are combined automatically for the grade. The number beside each subject is how many students take it; subjects no student takes are left out of the sheet.',
-      'প্রতিটি বিভাগের বিষয়, কোনটি আবশ্যিক আর কোনটি শিক্ষার্থী বাছবে, এবং বিভাগের নিয়ম ঠিক করুন। বাংলা ১ম ও ২য় পত্রের মতো পত্রগুলো আলাদা বিষয়, গ্রেডের সময় স্বয়ংক্রিয়ভাবে একসাথে হিসাব হয়। প্রতিটি বিষয়ের পাশের সংখ্যা হলো কতজন শিক্ষার্থী বিষয়টি নিয়েছে; যে বিষয় কেউ নেয়নি তা শিটে রাখা হয় না।'));
+    const intro = h('div', {}, h('p', { class: 'muted' }, tt('For each group choose the subjects, whether each is compulsory or chosen by the student, and the group rules. The number beside each subject is how many students take it; subjects no student takes are left out of the sheet.',
+      'প্রতিটি বিভাগের বিষয়, কোনটি আবশ্যিক আর কোনটি শিক্ষার্থী বাছবে, এবং বিভাগের নিয়ম ঠিক করুন। প্রতিটি বিষয়ের পাশের সংখ্যা হলো কতজন শিক্ষার্থী বিষয়টি নিয়েছে; যে বিষয় কেউ নেয়নি তা শিটে রাখা হয় না।')),
+      h('p', { class: 'muted' }, tt('Papers: a subject with a 1st and 2nd paper is normally two separate subjects on the sheet, each with its own code and full marks (e.g. 100 + 100); for the grade the two papers are combined, as the board does. Choose "1st & 2nd paper together" when both papers are one exam (e.g. 100 marks). The choice is taken from the examination routine when it has one.',
+        'পত্র: যে বিষয়ের ১ম ও ২য় পত্র আছে, সাধারণত শিটে তা দুটি আলাদা বিষয় — নিজস্ব কোড ও পূর্ণমানসহ (যেমন ১০০ + ১০০); গ্রেডের সময় বোর্ডের মতো দুই পত্র একসাথে হিসাব হয়। দুই পত্র একটি পরীক্ষায় হলে (যেমন ১০০ নম্বর) "১ম ও ২য় পত্র একসাথে" বাছুন। পরীক্ষার সময়সূচিতে ঠিক করা থাকলে সেখান থেকেই নেওয়া হয়।')));
     const groupsBox = h('div', {}, loadingState());
     // Each group sits in its own box so one group can repaint without touching the others.
     // Repaints wait a tick: replacing a focused input fires its blur/change handlers mid-update.
@@ -253,7 +295,8 @@ async function init(sid, body) {
       draw(); return box;
     };
     const paintAll = () => groupsBox.replaceChildren(...st.groupIds.map((g) => groupBox(g)));
-    loadRoster().then(paintAll).catch((e) => {
+    st.repaintAll = () => setTimeout(() => { if (groupsBox.isConnected) paintAll(); }, 0);
+    Promise.all([loadRoster(), loadRoutineForms().catch(() => null)]).then(paintAll).catch((e) => {
       toast(tt('Could not load the students, so the student counts are not shown.', 'শিক্ষার্থীদের তথ্য আনা যায়নি, তাই শিক্ষার্থী সংখ্যা দেখানো যাচ্ছে না।') + ` ${friendlyError(e)}`, 'error');
       paintAll();
     });
@@ -283,7 +326,7 @@ async function init(sid, body) {
         h('label', { class: 'check-chip' }, h('input', { type: 'checkbox', class: 'checkbox', checked: rules.requiresFourth, onchange: (e) => { rules.requiresFourth = e.target.checked; markDirty(); repaint(); } }), h('span', {}, tt('Every student has a 4th subject', 'প্রত্যেকের ৪র্থ বিষয় আছে'))),
         num(tt('Papers per student', 'প্রতি শিক্ষার্থীর পত্র সংখ্যা'), 'examsPerStudent', { max: 30 })),
       ...notices,
-      options.length ? h('table', { class: 'data-table subject-roles' }, h('thead', {}, h('tr', {}, h('th', {}, tt('Include', 'অন্তর্ভুক্ত')), h('th', {}, tt('Subject', 'বিষয়')), h('th', {}, tt('Role in this group', 'এই বিভাগে ভূমিকা')), h('th', {}, tt('Marks', 'নম্বর')))),
+      options.length ? h('table', { class: 'data-table subject-roles' }, h('thead', {}, h('tr', {}, h('th', {}, tt('Include', 'অন্তর্ভুক্ত')), h('th', {}, tt('Subject', 'বিষয়')), h('th', {}, tt('Role in this group', 'এই বিভাগে ভূমিকা')), h('th', {}, tt('Papers', 'পত্র')), h('th', {}, tt('Marks', 'নম্বর')))),
         h('tbody', {}, visible.map((x) => {
           const isEmpty = empty.includes(x.id);
           const cb = h('input', { type: 'checkbox', class: 'checkbox', checked: st.groupSubjects[g].includes(x.id), 'aria-label': L(x.name), onchange: (e) => {
@@ -292,13 +335,19 @@ async function init(sid, body) {
             markDirty(); } });
           const role = h('select', { class: 'input input--sm', 'aria-label': tt('Role', 'ভূমিকা'), onchange: (e) => { st.groupRoles[g][x.id] = e.target.value; markDirty(); repaint(); } },
             Object.entries(ROLE_LABELS()).map(([v, l]) => h('option', { value: v, selected: (st.groupRoles[g][x.id] ?? 'compulsory') === v }, l)));
-          const lbl = subjectLabelForClass(x, st.details.classId); // name and board code(s) for this class
           const zero = ready && roleOf(g, x.id) !== 'compulsory' && !takers(counts, x.id);
+          const entries = entriesOf(x.id);
+          const codes = entries.map((e) => e.code).filter(Boolean).join(', ');
+          const two = hasTwoPapers(x);
+          const papers = two ? h('select', { class: 'input input--sm', 'aria-label': tt('Papers of {x}', '{x}-এর পত্র', { x: L(x.name) }), onchange: (e) => { st.paperForms[x.id] = e.target.value; markDirty(); st.repaintAll?.(); } },
+            Object.entries(PAPER_LABELS()).map(([v, l]) => h('option', { value: v, selected: formOf(x.id) === v }, l))) : h('span', { class: 'muted small' }, '—');
+          const fromRoutine = two && !st.paperForms[x.id] && st.routineForms[x.id];
           return h('tr', { class: isEmpty ? 'is-empty-subject' : '' }, h('td', {}, cb),
-            h('td', {}, h('strong', {}, L(lbl.name)), lbl.code ? h('span', { class: 'muted small' }, ` ${lbl.code}`) : null,
+            h('td', {}, h('strong', {}, L(x.name)), codes ? h('span', { class: 'muted small' }, ` ${codes}`) : null,
               ready ? h('span', { class: `subject-count${zero ? ' subject-count--zero' : ''}` }, ` ${countLabel(g, x.id, counts)}`) : null,
               x.combine?.key ? h('div', { class: 'muted small' }, tt('Combined into {n}', '{n}-এ একত্রে হিসাব', { n: L(x.combine.name) })) : null),
-            h('td', {}, role), h('td', { class: 'muted small' }, compSummary(x)));
+            h('td', {}, role), h('td', {}, papers, fromRoutine ? h('div', { class: 'muted small' }, tt('as in the routine', 'সময়সূচি অনুযায়ী')) : null),
+            h('td', { class: 'muted small' }, compSummary(x), two && formOf(x.id) === 'separate' ? h('div', {}, tt('each paper', 'প্রতি পত্রে')) : null));
         }))) : h('p', { class: 'muted' }, tt('No active subjects for this class and group. Add them in Subjects.', 'এই শ্রেণি ও বিভাগের কোনো সক্রিয় বিষয় নেই। বিষয় পৃষ্ঠায় যোগ করুন।')),
       empty.length ? h('div', { class: 'empty-subjects-bar' },
         h('span', { class: 'muted small' }, showEmpty
@@ -312,20 +361,30 @@ async function init(sid, body) {
   function pseudoSheets() {
     return st.groupIds.map((g) => ({ id: g, subjectIds: st.groupSubjects[g] ?? [], subjectRoles: st.groupRoles[g] ?? {}, ...(st.groupRules[g] ?? {}) }));
   }
+  /** The same, with each subject expanded into its exam entries (papers) — for counting papers per student. */
+  function examSheets() {
+    return pseudoSheets().map((sh) => {
+      const subjectIds = sh.subjectIds.flatMap(examIdsOf);
+      return { ...sh, subjectIds, subjectRoles: Object.fromEntries(subjectIds.map((eid) => [eid, sh.subjectRoles[baseSubjectId(eid)] ?? 'compulsory'])) };
+    });
+  }
 
   function stepTeachers() {
     const box = h('div', {}, loadingState());
     listAssignments({ classId: st.details.classId }).then((assign) => {
+      st.assign = assign;
       const active = teachers.filter((x) => x.status === 'active');
       box.replaceChildren(h('table', { class: 'data-table' }, h('thead', {}, h('tr', {}, h('th', {}, tt('Subject', 'বিষয়')), h('th', {}, tt('Components', 'অংশ')), h('th', {}, tt('Teacher(s)', 'শিক্ষক')))),
-        h('tbody', {}, chosenSubjectIds().map((sid2) => {
-          const s = cats.subjects.find((x) => x.id === sid2);
-          if (!st.teachers[sid2]) st.teachers[sid2] = assign.filter((a) => a.subjectId === sid2 && tById[a.teacherId]?.status === 'active').map((a) => a.teacherId);
-          const sel = h('select', { class: 'input', multiple: true, size: Math.min(4, Math.max(2, active.length)), 'aria-label': tt('Teachers for {x}', '{x}-এর শিক্ষক', { x: L(s?.name) }),
+        h('tbody', {}, chosenExamIds().map((sid2) => {
+          // One row per exam entry: Physics 1st Paper and Physics 2nd Paper may have different teachers.
+          const s = catSubject(sid2);
+          const entry = entryById(sid2);
+          if (!st.teachers[sid2]) st.teachers[sid2] = defaultTeachers(sid2);
+          const sel = h('select', { class: 'input', multiple: true, size: Math.min(4, Math.max(2, active.length)), 'aria-label': tt('Teachers for {x}', '{x}-এর শিক্ষক', { x: L(entry?.name ?? s?.name) }),
             onchange: (e) => { st.teachers[sid2] = [...e.target.selectedOptions].map((o) => o.value); markDirty(); warn.hidden = st.teachers[sid2].length > 0; } },
             active.map((x) => h('option', { value: x.id, selected: st.teachers[sid2].includes(x.id) }, x.displayName)));
           const warn = h('p', { class: 'field__error', hidden: st.teachers[sid2].length > 0 }, tt('No teacher assigned', 'শিক্ষক নির্ধারিত নয়'));
-          return h('tr', {}, h('td', {}, L(s?.name)), h('td', { class: 'muted' }, compSummary(s ?? {})), h('td', {}, sel, warn));
+          return h('tr', {}, h('td', {}, L(entry?.name ?? s?.name), entry?.code ? h('span', { class: 'muted small' }, ` ${entry.code}`) : null), h('td', { class: 'muted' }, compSummary(s ?? {})), h('td', {}, sel, warn));
         }))), h('p', { class: 'muted' }, tt('Hold Ctrl (or ⌘) to choose more than one teacher. Only approved teachers are listed. Defaults come from Assignments.', 'একাধিক শিক্ষক বাছতে Ctrl (বা ⌘) চেপে ধরুন। শুধু অনুমোদিত শিক্ষক দেখানো হয়। প্রাথমিক মান দায়িত্ব বণ্টন থেকে আসে।')));
     });
     return box;
@@ -350,7 +409,7 @@ async function init(sid, body) {
         rows.length ? h('div', { class: 'table-scroll' }, h('table', { class: 'data-table roster' },
           h('thead', {}, h('tr', {}, h('th', {}, tt('Include', 'অন্তর্ভুক্ত')), h('th', {}, tt('Roll', 'রোল')), h('th', {}, tt('Name', 'নাম')), h('th', {}, tt('Group', 'বিভাগ')), h('th', {}, tt('Chosen subjects and 4th subject', 'বাছাই করা বিষয় ও ৪র্থ বিষয়')))),
           h('tbody', {}, rows.map((r) => {
-            const check = r.groupId ? checkStudentChoices({ sheets: pseudoSheets() }, r) : { errors: [], warnings: [], examCount: 0 };
+            const check = r.groupId ? checkStudentChoices({ sheets: examSheets() }, r) : { errors: [], warnings: [], examCount: 0 };
             const rowSheet = pseudoSheets().find((x) => x.id === r.groupId);
             const outside = rowSheet ? [...new Set([...(r.subjectIds ?? []), r.optionalSubjectId].filter(Boolean))].filter((id) => !rowSheet.subjectIds.includes(id)) : [];
             return h('tr', { class: dup.has(r.roll) && r.include ? 'is-error' : '' },
@@ -422,22 +481,27 @@ async function init(sid, body) {
     // Choices may have changed in step 4: drop subjects that no student takes any more.
     if (rosterReady()) st.groupIds.forEach((g) => { if (st.groupSubjects[g]) pruneEmpty(g); });
     const subjectIds = chosenSubjectIds();
+    // Teachers for exam entries not seen in step 3 yet (e.g. papers split after visiting it) come from Assignments.
+    if (st.assign) for (const eid of chosenExamIds()) if (!st.teachers[eid]) st.teachers[eid] = defaultTeachers(eid);
     return {
       yearId: d.yearId, classId: d.classId, examDefId: d.examDefId,
       title: { en: d.titleEn || `${nameOf(cats.examDefs, d.examDefId)} ${d.yearId}`, bn: d.titleBn || null },
       heldOn: d.heldOn || null, startDate: d.startDate || null, endDate: d.endDate || null, notes: d.notes || null,
       markEntryDeadline: d.markEntryDeadline ? new Date(d.markEntryDeadline) : null,
       groups: st.groupIds.map((g) => {
-        const ids = (st.groupSubjects[g] ?? []).filter((x) => subjectsFor(g).some((s) => s.id === x));
-        return { groupId: g, subjectIds: ids, subjectRoles: Object.fromEntries(ids.map((id) => [id, st.groupRoles[g]?.[id] ?? 'compulsory'])),
-          subjectColumns: Object.fromEntries(ids.map((id) => [id, cats.subjects.find((x) => x.id === id)?.sheetColumns?.[g] ?? id])),
+        const base = (st.groupSubjects[g] ?? []).filter((x) => subjectsFor(g).some((s) => s.id === x));
+        // Each subject becomes its exam entries: physics → physics__p1 + physics__p2 (or physics when examined together).
+        const ids = base.flatMap(examIdsOf);
+        const column = (eid) => { const shared = catSubject(eid)?.sheetColumns?.[g]; const e = entryById(eid); return shared || (e?.combine ? baseSubjectId(eid) : eid); };
+        return { groupId: g, subjectIds: ids, subjectRoles: Object.fromEntries(ids.map((id) => [id, st.groupRoles[g]?.[baseSubjectId(id)] ?? 'compulsory'])),
+          subjectColumns: Object.fromEntries(ids.map((id) => [id, column(id)])),
           choiceCount: st.groupRules[g]?.choiceCount ?? 0, requiresFourth: Boolean(st.groupRules[g]?.requiresFourth), examsPerStudent: st.groupRules[g]?.examsPerStudent ?? null };
       }),
-      subjects: subjectIds.map((id) => {
+      subjects: subjectIds.flatMap((id) => {
         const s = cats.subjects.find((x) => x.id === id);
-        const lbl = subjectLabelForClass(s, d.classId); // 1st/2nd paper scheme of this class
-        return { subjectId: id, definition: { name: lbl.name, code: lbl.code, paperScheme: lbl.scheme, order: s.order ?? null, combine: s.combine?.key ? s.combine : null, components: s.components ?? [], passMarks: s.passMarks ?? null, countsTowardGpa: s.countsTowardGpa !== false, countsTowardTotal: s.countsTowardTotal !== false },
-          teacherIds: st.teachers[id] ?? [], teacherNames: Object.fromEntries((st.teachers[id] ?? []).map((x) => [x, tById[x]?.displayName ?? x])) };
+        // Separate papers are linked by `combine` (graded together, like Bangla 1st + 2nd); each has the subject's full marks.
+        return entriesOf(id).map((e) => ({ subjectId: e.id, definition: { name: e.name, code: e.code, paperScheme: e.paperScheme, paper: e.paper, sourceId: id, order: s.order ?? null, combine: e.combine, components: s.components ?? [], passMarks: s.passMarks ?? null, countsTowardGpa: s.countsTowardGpa !== false, countsTowardTotal: s.countsTowardTotal !== false },
+          teacherIds: st.teachers[e.id] ?? [], teacherNames: Object.fromEntries((st.teachers[e.id] ?? []).map((x) => [x, tById[x]?.displayName ?? x])) }));
       }),
       roster: [...st.roster.values()].filter((r) => r.include && st.groupIds.includes(r.groupId)),
     };

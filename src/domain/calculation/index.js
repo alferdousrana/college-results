@@ -11,6 +11,7 @@ export * from './snapshot.js';
 export * from './combine.js';
 
 import { computeStudentResult } from './overall-result.js';
+import { baseSubjectId } from '../paper-scheme.js';
 import { rankStudents } from './merit.js';
 import { highestMarksBySubject, summarize } from './class-stats.js';
 
@@ -29,7 +30,7 @@ export function computeResultSheet({ students, subjectsByGroup, marks, policy, s
     result: computeStudentResult({
       // Each student sits the group's subjects, narrowed by their own subject list when given
       // (elective alternatives such as Islamic History / Psychology in Humanities).
-      subjects: (subjectsByGroup[st.groupId ?? '_'] ?? []).filter((s) => !Array.isArray(st.subjectIds) || st.subjectIds.includes(s.id)),
+      subjects: (subjectsByGroup[st.groupId ?? '_'] ?? []).filter((s) => !Array.isArray(st.subjectIds) || st.subjectIds.includes(s.id) || st.subjectIds.includes(baseSubjectId(s.id))),
       marks: marks[st.studentId],
       policy, scale,
       optionalSubjectId: st.optionalSubjectId ?? null,

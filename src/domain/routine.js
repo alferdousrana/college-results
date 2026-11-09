@@ -1,6 +1,7 @@
 /**
  * Pure helpers for examination routines and attendance (হাজিরা) sheets.
  */
+import { baseSubjectId } from './paper-scheme.js';
 const BN_DIGITS = ['০', '১', '২', '৩', '৪', '৫', '৬', '৭', '৮', '৯'];
 export const bnDigits = (v) => String(v ?? '').replace(/\d/g, (d) => BN_DIGITS[d]);
 export const BN_WEEKDAYS = ['রবিবার', 'সোমবার', 'মঙ্গলবার', 'বুধবার', 'বৃহস্পতিবার', 'শুক্রবার', 'শনিবার'];
@@ -33,15 +34,29 @@ export function scheduleCheck(routine, sessionId, subjectIds) {
  */
 export function attendanceRows(routine, sessionId, studentSubjectIds) {
   const rows = [];
+  // Students choose catalogue subjects ("physics"); the routine may hold papers ("physics__p1") or the
+  // subject examined as one ("physics"). Either way the student sits it.
+  const want = new Set(studentSubjectIds ?? []);
+  const wantBase = new Set([...want].map(baseSubjectId));
+  const sits = (id) => want.has(id) || want.has(baseSubjectId(id)) || wantBase.has(id);
   const slotOrder = Object.fromEntries((routine.slots ?? []).map((s, i) => [s.id, i]));
   for (const d of sortedDays(routine)) {
     for (const s of routine.slots ?? []) {
       for (const id of d.cells?.[cellKey(s.id, sessionId)] ?? []) {
-        if (studentSubjectIds.includes(id)) rows.push({ date: d.date, slotId: s.id, slotLabel: s.label, subjectId: id, order: slotOrder[s.id] });
+        if (sits(id)) rows.push({ date: d.date, slotId: s.id, slotLabel: s.label, subjectId: id, order: slotOrder[s.id] });
       }
     }
   }
   return rows.sort((a, b) => a.date.localeCompare(b.date) || a.order - b.order);
+}
+
+/** Every subject id scheduled for one result sheet (class + exam + session) across the given routines. */
+export function scheduledIds(routines, sessionId) {
+  const out = new Set();
+  for (const r of routines) for (const d of r.days ?? []) {
+    for (const [k, v] of Object.entries(d.cells ?? {})) if (k.endsWith(`|${sessionId}`)) (v ?? []).forEach((id) => out.add(id));
+  }
+  return [...out];
 }
 
 /** First and last exam day of one result sheet (class + exam + session) across all routines. */

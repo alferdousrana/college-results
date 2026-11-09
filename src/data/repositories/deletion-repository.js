@@ -74,7 +74,10 @@ export async function deleteSubject(actor, subjectId) {
   const b = await getBackend();
   const sub = await b.get(`${C.SUBJECTS}/${subjectId}`);
   const uses = [];
-  for (const s of await allSessions(b)) if (await b.get(paths.sessionSubject(s.id, subjectId))) uses.push(s.title?.en ?? s.id);
+  // A subject may be on a sheet as itself or as its papers (subject__p1, subject__p2).
+  for (const s of await allSessions(b)) {
+    for (const id of [subjectId, `${subjectId}__p1`, `${subjectId}__p2`]) if (await b.get(paths.sessionSubject(s.id, id))) { uses.push(s.title?.en ?? s.id); break; }
+  }
   if (uses.length) throw inUse(`This subject is used in ${uses.length} result sheet(s): ${uses.slice(0, 3).join(', ')}. Mark it inactive instead.`, uses);
   const batch = b.batch();
   (await b.list(C.TEACHER_ASSIGNMENTS, { where: [['subjectId', '==', subjectId]], limit: 500 })).items.forEach((a) => batch.delete(`${C.TEACHER_ASSIGNMENTS}/${a.id}`));

@@ -7,6 +7,7 @@
  * marks  = { [subjectId]: { [studentId]: markDoc } }
  */
 import { ABSENT } from './calculation/constants.js';
+import { baseSubjectId, belongsTo } from './paper-scheme.js';
 
 export function subjectDefinition(sessionSubject) {
   const d = sessionSubject.definition ?? {};
@@ -25,7 +26,16 @@ export function subjectDefinition(sessionSubject) {
 
 /** Role of a subject inside a group's sheet: 'compulsory' (default), 'choice' (student picks) or 'fourth' (4th-subject only). */
 export function subjectRole(sheet, subjectId) {
-  return sheet?.subjectRoles?.[subjectId] ?? 'compulsory';
+  const roles = sheet?.subjectRoles ?? {};
+  if (roles[subjectId]) return roles[subjectId];
+  // A catalogue id (e.g. a student's choice "physics") takes the role of its papers (physics__p1 …).
+  const paperId = (sheet?.subjectIds ?? []).find((id) => id !== subjectId && baseSubjectId(id) === subjectId && roles[id]);
+  return paperId ? roles[paperId] : 'compulsory';
+}
+
+/** Is the catalogue subject (or one of its papers) on this group's sheet? */
+export function sheetHasSubject(sheet, subjectId) {
+  return (sheet?.subjectIds ?? []).some((id) => belongsTo(id, subjectId));
 }
 
 export function activeEnrollments(bundle) {
@@ -40,7 +50,8 @@ export function studentSubjectIds(bundle, enrollment) {
   const sheet = bundle.sheets.find((s) => s.id === enrollment.groupId);
   const groupSubjects = sheet?.subjectIds ?? [];
   const chosen = new Set([...(Array.isArray(enrollment.subjectIds) ? enrollment.subjectIds : []), enrollment.optionalSubjectId].filter(Boolean));
-  return groupSubjects.filter((id) => subjectRole(sheet, id) === 'compulsory' || chosen.has(id));
+  // Choices name catalogue subjects; a subject examined as two papers (physics__p1, physics__p2) covers both.
+  return groupSubjects.filter((id) => subjectRole(sheet, id) === 'compulsory' || chosen.has(id) || chosen.has(baseSubjectId(id)));
 }
 
 /** Checks one student's subject choices against the group rules. Returns { errors, warnings, examCount }. */
@@ -54,7 +65,7 @@ export function checkStudentChoices(bundle, enrollment) {
   if (sheet.requiresFourth && !enrollment.optionalSubjectId) errors.push(`Roll ${enrollment.roll}: choose the 4th subject.`);
   if (enrollment.optionalSubjectId) {
     const r = subjectRole(sheet, enrollment.optionalSubjectId);
-    if (!(sheet.subjectIds ?? []).includes(enrollment.optionalSubjectId) || r === 'compulsory') errors.push(`Roll ${enrollment.roll}: the 4th subject must be a choice or 4th-subject option.`);
+    if (!sheetHasSubject(sheet, enrollment.optionalSubjectId) || r === 'compulsory') errors.push(`Roll ${enrollment.roll}: the 4th subject must be a choice or 4th-subject option.`);
     if (chosen.includes(enrollment.optionalSubjectId)) errors.push(`Roll ${enrollment.roll}: the 4th subject is also chosen as a main subject.`);
   }
   const examCount = studentSubjectIds(bundle, enrollment).length;
