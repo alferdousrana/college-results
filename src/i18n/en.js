@@ -22,6 +22,8 @@ export default {
   'nav.archive': 'Result archive',
   'nav.audit': 'Audit log',
   'nav.history': 'Past examinations',
+  'nav.overview': 'Overview',
+  'nav.administrators': 'Administration',
   'nav.search': 'Search',
   'auth.errorTooMany': 'Too many attempts. Wait a few minutes and try again.',
 

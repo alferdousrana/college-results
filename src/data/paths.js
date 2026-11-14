@@ -31,6 +31,8 @@ export const C = Object.freeze({
   FLAGS: 'featureFlags',
   NOTIFICATIONS: 'notifications',
   STAFF: 'staff',
+  NOTICES: 'notices',            // public notice board (text, date, optional link)
+  NOTICE_FILES: 'noticeFiles',   // the PDF of a notice, same id, fetched only when opened
   STUDENT_HISTORY: 'publishedResults', // students/{id}/publishedResults/{sessionId}
 });
 

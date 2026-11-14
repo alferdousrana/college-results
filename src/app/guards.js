@@ -1,5 +1,5 @@
 import { getState } from '../core/store.js';
-import { AccountStatus, Role, Grant, hasGrant } from '../auth/roles.js';
+import { AccountStatus, Role, Grant, hasGrant, isAdminRole, can, Permission } from '../auth/roles.js';
 
 /** Returns null when access is allowed, or a redirect path / 'forbidden'. */
 export function checkAccess(route) {
@@ -10,9 +10,12 @@ export function checkAccess(route) {
   if (route.access === 'signed-in') return null;
   if (!profile || profile.status !== AccountStatus.ACTIVE) return '/pending';
   if (route.access === 'staff') return null;
-  if (route.access === 'admin' && profile.role !== Role.SUPER_ADMIN) return 'forbidden';
+  if (route.access === 'admin' && !isAdminRole(profile.role)) return 'forbidden';
   if (route.access === 'teacher' && profile.role !== Role.TEACHER) return 'forbidden';
   if (route.access === 'students' && !hasGrant(profile, Grant.STUDENTS)) return 'forbidden';
+  // Student list: editors (students right) and view-only roles (teachers, administrators).
+  if (route.access === 'students-view' && !hasGrant(profile, Grant.STUDENTS) && !can(profile, Permission.VIEW_OVERVIEW)) return 'forbidden';
+  if (route.access === 'overview' && !can(profile, Permission.VIEW_OVERVIEW)) return 'forbidden';
   if (route.access === 'staff-home' && profile.role !== Role.STAFF) return 'forbidden';
   return null;
 }
@@ -21,7 +24,8 @@ export function homePathFor(state = getState()) {
   const p = state.profile;
   if (!state.authUser) return '/lookup';
   if (!p || p.status !== AccountStatus.ACTIVE) return '/pending';
-  if (p.role === Role.SUPER_ADMIN) return '/admin';
+  if (isAdminRole(p.role)) return '/admin';
+  if (p.role === Role.ADMINISTRATOR) return '/overview';
   if (p.role === Role.STAFF) return '/staff';
   return '/teacher';
 }

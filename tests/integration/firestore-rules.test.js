@@ -25,6 +25,9 @@ d('firestore.rules', () => {
       await setDoc(doc(db, 'users/t1'), { role: 'teacher', status: 'active' });
       await setDoc(doc(db, 'users/t2'), { role: 'teacher', status: 'active' });
       await setDoc(doc(db, 'users/tp'), { role: 'teacher', status: 'pending' });
+      await setDoc(doc(db, 'users/pr'), { role: 'principal', status: 'active' });
+      await setDoc(doc(db, 'users/ad'), { role: 'administrator', status: 'active' });
+      await setDoc(doc(db, 'users/stfx'), { role: 'staff', status: 'active' });
       await setDoc(doc(db, 'examSessions/y__c__e'), { yearId: 'y', classId: 'c', examDefId: 'e', state: 'mark_entry_in_progress', teacherIds: ['t1', 't2'] });
       await setDoc(doc(db, 'examSessions/y__c__e/sessionSubjects/phy'), { teacherIds: ['t1'] });
       await setDoc(doc(db, 'examSessions/y__c__e/enrollments/st1'), { roll: '1' });
@@ -58,9 +61,13 @@ d('firestore.rules', () => {
   it('teachers cannot publish', async () => {
     await assertFails(updateDoc(doc(as('t1'), 'examSessions/y__c__e'), { state: 'published' }));
   });
-  it('teachers cannot read student records, settings writes, audit logs or unpublished results', async () => {
+  it('teachers can read (not change) student records, but not settings writes, audit logs or unpublished results', async () => {
     const t1 = as('t1');
-    await assertFails(getDoc(doc(t1, 'students/st1')));
+    await assertSucceeds(getDoc(doc(t1, 'students/st1')));
+    await assertFails(updateDoc(doc(t1, 'students/st1'), { nameEn: 'B' }));
+    await assertFails(deleteDoc(doc(t1, 'students/st1')));
+    await assertFails(getDoc(doc(as('stfx'), 'students/st1')));      // staff without the right still cannot
+    await assertFails(getDoc(doc(as('tp'), 'students/st1')));        // pending accounts cannot
     await assertFails(setDoc(doc(t1, 'settings/grading'), { scale: [] }));
     await assertFails(getDocs(collection(t1, 'auditLogs')));
     await assertFails(getDoc(doc(t1, 'examSessions/y__c__e/results/st1')));
@@ -174,6 +181,72 @@ d('firestore.rules', () => {
       await assertFails(setDoc(doc(as('dev'), 'featureFlags/global'), flags('dev', 1)));
     });
   });
+  describe('principal and administrators', () => {
+    it('a principal has admin rights: settings, students, publishing', async () => {
+      await assertSucceeds(setDoc(doc(as('pr'), 'settings/grading'), { scale: [] }));
+      await assertSucceeds(deleteDoc(doc(as('pr'), 'students/st1')));
+      await assertSucceeds(updateDoc(doc(as('pr'), 'users/tp'), { status: 'active' }));
+      await assertSucceeds(deleteDoc(doc(as('pr'), 'users/t2')));
+    });
+    it('a principal can never change, disable or delete the Super Admin, or promote anyone', async () => {
+      await assertFails(updateDoc(doc(as('pr'), 'users/admin'), { status: 'disabled' }));
+      await assertFails(deleteDoc(doc(as('pr'), 'users/admin')));
+      await assertFails(updateDoc(doc(as('pr'), 'users/t1'), { role: 'super_admin' }));
+      await assertFails(updateDoc(doc(as('pr'), 'users/t1'), { role: 'principal' }));
+      await assertFails(updateDoc(doc(as('pr'), 'users/pr'), { role: 'super_admin' }));
+      await assertFails(setDoc(doc(as('pr'), 'users/newp'), { role: 'principal', status: 'active', approvedBy: 'pr' }));
+      await assertSucceeds(setDoc(doc(as('pr'), 'users/newa'), { role: 'administrator', status: 'active', approvedBy: 'pr' }));
+    });
+    it('only the Super Admin creates, changes or removes a principal', async () => {
+      await assertSucceeds(setDoc(doc(as('admin'), 'users/newp'), { role: 'principal', status: 'active', approvedBy: 'admin' }));
+      await assertSucceeds(updateDoc(doc(as('admin'), 'users/pr'), { status: 'disabled' }));
+      await assertSucceeds(deleteDoc(doc(as('admin'), 'users/newp')));
+    });
+    it('an administrator can view but not change', async () => {
+      const ad = as('ad');
+      await assertSucceeds(getDoc(doc(ad, 'students/st1')));
+      await assertFails(updateDoc(doc(ad, 'students/st1'), { nameEn: 'B' }));
+      await assertFails(setDoc(doc(ad, 'settings/grading'), { scale: [] }));
+      await assertFails(getDoc(doc(ad, 'examSessions/y__c__e')));          // not published yet
+      await assertFails(getDoc(doc(ad, 'examSessions/y__c__e/results/st1')));
+      await assertFails(updateDoc(doc(ad, 'users/t1'), { status: 'disabled' }));
+      await assertSucceeds(getDoc(doc(ad, 'users/t1')));                    // active teacher list
+      await assertFails(getDoc(doc(ad, 'users/admin')));
+    });
+    it('teachers and administrators can read published result sheets, never marks', async () => {
+      await env.withSecurityRulesDisabled(async (ctx) => {
+        const db = ctx.firestore();
+        await setDoc(doc(db, 'examSessions/y__c__p'), { yearId: 'y', classId: 'c', examDefId: 'p', state: 'published', teacherIds: ['t1'] });
+        await setDoc(doc(db, 'examSessions/y__c__p/results/st1'), { gpa: 5 });
+        await setDoc(doc(db, 'examSessions/y__c__p/sessionSubjects/phy'), { teacherIds: ['t1'] });
+        await setDoc(doc(db, 'examSessions/y__c__p/sessionSubjects/phy/marks/st1'), { version: 1 });
+      });
+      for (const u of ['ad', 't2']) {
+        await assertSucceeds(getDoc(doc(as(u), 'examSessions/y__c__p')));
+        await assertSucceeds(getDoc(doc(as(u), 'examSessions/y__c__p/results/st1')));
+        await assertFails(getDoc(doc(as(u), 'examSessions/y__c__p/sessionSubjects/phy/marks/st1')));
+        await assertFails(updateDoc(doc(as(u), 'examSessions/y__c__p'), { state: 'archived' }));
+      }
+    });
+  });
+
+  it('notices: everyone reads published ones; only admins write', async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const db = ctx.firestore();
+      await setDoc(doc(db, 'notices/n1'), { published: true, title: { en: 'A' } });
+      await setDoc(doc(db, 'notices/n2'), { published: false, title: { en: 'B' } });
+      await setDoc(doc(db, 'noticeFiles/n1'), { data: 'data:application/pdf;base64,AA' });
+    });
+    const anon = env.unauthenticatedContext().firestore();
+    await assertSucceeds(getDoc(doc(anon, 'notices/n1')));
+    await assertFails(getDoc(doc(anon, 'notices/n2')));
+    await assertSucceeds(getDoc(doc(anon, 'noticeFiles/n1')));
+    await assertFails(getDocs(collection(anon, 'noticeFiles')));
+    await assertFails(setDoc(doc(anon, 'notices/n3'), { published: true }));
+    await assertFails(setDoc(doc(as('t1'), 'notices/n3'), { published: true }));
+    await assertSucceeds(setDoc(doc(as('pr'), 'notices/n3'), { published: true }));
+  });
+
   it('public visitors can get but not list published results, and cannot read sessions', async () => {
     const anon = env.unauthenticatedContext().firestore();
     await assertSucceeds(getDoc(doc(anon, 'publicResults/abc')));

@@ -2,6 +2,7 @@
  * Global search (Ctrl/⌘+K or the header search button): jumps to pages, recent result sheets
  * and — for administrators — students by student ID.
  */
+import { isAdminRole } from '../../auth/roles.js';
 import { h } from '../../core/dom.js';
 import { t, tt, L } from '../../i18n/index.js';
 import { getState } from '../../core/store.js';
@@ -18,7 +19,7 @@ export function openSearch() {
   (async () => {
     try {
       const repo = await import('../../data/repositories/sessions-repository.js');
-      sessions = role === 'super_admin' ? await repo.listSessions({ limit: 30 }) : role === 'teacher' ? await repo.listTeacherSessions(profile.id, 30) : [];
+      sessions = isAdminRole(role) ? await repo.listSessions({ limit: 30 }) : role === 'teacher' ? await repo.listTeacherSessions(profile.id, 30) : [];
       render();
     } catch { /* offline or not configured */ }
   })();
@@ -27,10 +28,10 @@ export function openSearch() {
     const results = [
       ...pages.filter((p) => !q || p.label.toLowerCase().includes(q)),
       ...sessions.filter((s) => q && L(s.title).toLowerCase().includes(q)).map((s) => ({ label: `${L(s.title)} — ${t(`exam.state.${s.state}`)}`,
-        href: role === 'super_admin' ? `#/admin/sheet?sid=${encodeURIComponent(s.id)}` : `#/teacher/exam?sid=${encodeURIComponent(s.id)}` })),
+        href: isAdminRole(role) ? `#/admin/sheet?sid=${encodeURIComponent(s.id)}` : `#/teacher/exam?sid=${encodeURIComponent(s.id)}` })),
     ];
     list.replaceChildren(...results.slice(0, 12).map((r) => h('li', {}, h('a', { href: r.href, onclick: () => m.close() }, r.label))));
-    if (role === 'super_admin' && /^s\w{4,}$/i.test(q)) {
+    if (isAdminRole(role) && /^s\w{4,}$/i.test(q)) {
       const { findStudentByCode } = await import('../../data/repositories/students-repository.js');
       const st = await findStudentByCode(q.toUpperCase()).catch(() => null);
       if (st) list.prepend(h('li', {}, h('a', { href: `#/admin/students?student=${encodeURIComponent(st.id)}`, onclick: () => m.close() }, `${st.nameEn} (${st.studentCode})`)));

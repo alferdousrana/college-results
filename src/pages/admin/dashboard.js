@@ -22,6 +22,9 @@ async function load() {
   const classes = cats.classes.filter((c) => c.active !== false), groups = cats.groups.filter((g) => g.active !== false);
   const [teachers, staff, students] = await Promise.all([stats.countActiveTeachers().catch(() => null), stats.countActiveStaff().catch(() => null),
     year ? stats.studentCounts(year.id, classes, groups).catch(() => ({})) : {}]);
+  // Keep the numbers on the public page current (only when set to automatic; writes only on change).
+  const totalStudents = Object.values(students ?? {}).reduce((x, c) => x + (c.total ?? 0), 0);
+  stats.syncPublicCounts({ students: year ? totalStudents : null, teachers }).catch(() => {});
   return { pending, sessions, grading, counts: { teachers, staff, students, year, classes, groups } };
 }
 

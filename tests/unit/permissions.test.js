@@ -41,3 +41,39 @@ describe('grants', () => {
     expect(hasGrant({ role: 'teacher', status: 'active' }, 'students')).toBe(false);
   });
 });
+
+import { isAdminRole, manageableRoles, effectiveRole } from '../../src/auth/roles.js';
+import { canTransition } from '../../src/domain/exam-lifecycle.js';
+describe('principal and administrators', () => {
+  const principal = { role: 'principal', status: 'active' };
+  const office = { role: 'administrator', status: 'active' };
+  it('a principal has every permission and admin pages', () => {
+    expect(can(principal, Permission.PUBLISH_RESULTS)).toBe(true);
+    expect(isAdminRole('principal')).toBe(true);
+    expect(effectiveRole('principal')).toBe('super_admin');
+    expect(canTransition('under_review', 'published', 'principal')).toBe(true);
+    setState({ firebaseReady: true, authUser: { uid: 'p' }, profile: principal });
+    expect(checkAccess({ path: '/admin', access: 'admin' })).toBe(null);
+    expect(homePathFor()).toBe('/admin');
+  });
+  it('a principal cannot manage the Super Admin or create a principal', () => {
+    expect(manageableRoles(principal)).not.toContain('super_admin');
+    expect(manageableRoles(principal)).not.toContain('principal');
+    expect(manageableRoles({ role: 'super_admin', status: 'active' })).toContain('principal');
+  });
+  it('administrators and teachers see the overview, read only', () => {
+    expect(can(office, Permission.VIEW_OVERVIEW)).toBe(true);
+    expect(can({ role: 'teacher', status: 'active' }, Permission.VIEW_OVERVIEW)).toBe(true);
+    expect(can(office, Permission.MANAGE_STUDENTS)).toBe(false);
+    expect(hasGrant(office, 'students')).toBe(false);
+    expect(can({ role: 'staff', status: 'active' }, Permission.VIEW_OVERVIEW)).toBe(false);
+    setState({ firebaseReady: true, authUser: { uid: 'o' }, profile: office });
+    expect(homePathFor()).toBe('/overview');
+    expect(checkAccess({ path: '/admin', access: 'admin' })).toBe('forbidden');
+    expect(checkAccess({ path: '/overview', access: 'overview' })).toBe(null);
+    expect(checkAccess({ path: '/admin/students', access: 'students-view' })).toBe(null);
+    expect(checkAccess({ path: '/admin/students/import', access: 'students' })).toBe('forbidden');
+    setState({ firebaseReady: true, authUser: { uid: 's' }, profile: { role: 'staff', status: 'active' } });
+    expect(checkAccess({ path: '/overview', access: 'overview' })).toBe('forbidden');
+  });
+});

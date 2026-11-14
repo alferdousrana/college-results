@@ -12,6 +12,7 @@ import { actor, friendlyError, nameOf } from './_shared.js';
 import { ExamState } from '../domain/exam-lifecycle.js';
 import { subjectDefinition } from '../domain/session-calc.js';
 import { featureGate } from '../ui/components/feature-gate.js';
+import { isAdminRole } from '../auth/roles.js';
 
 export const title = 'nav.results';
 
@@ -30,7 +31,7 @@ async function init(query, root) {
   const bundle = await loadSessionBundle(sid);
   const s = bundle.session;
   const published = [ExamState.PUBLISHED, ExamState.ARCHIVED].includes(s.state);
-  if (!published && me.role !== 'super_admin') { root.replaceChildren(emptyState({ message: tt('Results become visible here after they are published.', 'ফলাফল প্রকাশের পর এখানে দেখা যাবে।') })); return; }
+  if (!published && !isAdminRole(me.role)) { root.replaceChildren(emptyState({ message: tt('Results become visible here after they are published.', 'ফলাফল প্রকাশের পর এখানে দেখা যাবে।') })); return; }
   const cats = await loadAllCatalogues();
   const ctx = await results.getPrintContext(sid);
   let vms;
@@ -93,7 +94,7 @@ async function init(query, root) {
   }
 
   root.replaceChildren(
-    pageHeader({ title: L(s.title), subtitle: `${nameOf(cats.classes, s.classId)} · ${s.yearId}`, back: { href: me.role === 'super_admin' ? `#/admin/sheet?sid=${encodeURIComponent(sid)}` : '#/teacher/history', label: tt('Back', 'ফিরে যান') } }),
+    pageHeader({ title: L(s.title), subtitle: `${nameOf(cats.classes, s.classId)} · ${s.yearId}`, back: { href: isAdminRole(me.role) ? `#/admin/sheet?sid=${encodeURIComponent(sid)}` : me.role === 'teacher' && query.get('from') !== 'overview' ? '#/teacher/history' : '#/overview', label: tt('Back', 'ফিরে যান') } }),
     !published ? h('p', { class: 'notice notice--locked no-print' }, tt('Preview — not published. Students cannot see these results yet.', 'প্রাকদর্শন — প্রকাশিত নয়। শিক্ষার্থীরা এখনো এই ফলাফল দেখতে পাবে না।')) : null,
     controls, area);
   paint();

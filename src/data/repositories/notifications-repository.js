@@ -4,6 +4,7 @@
  * Messages are rendered from i18n keys + small params (exam title, subject name) — never marks,
  * guardian details or other private student information.
  */
+import { isAdminRole } from '../../auth/roles.js';
 import { getBackend } from '../backend/index.js';
 import { C } from '../paths.js';
 import { serverTime, arrayUnion } from '../field-ops.js';
@@ -24,7 +25,7 @@ export async function listenNotifications(profile, cb) {
   const emitAll = () => cb([...personal, ...broadcast].sort((a, c) => (c.createdAt ?? 0) - (a.createdAt ?? 0)).slice(0, 20));
   const unsubs = [b.listenList(C.NOTIFICATIONS, { where: [['recipientUid', '==', profile.id]], orderBy: [['createdAt', 'desc']], limit: 20 },
     (items) => { personal = items; emitAll(); }, () => {})];
-  if (profile.role === 'super_admin') {
+  if (isAdminRole(profile.role)) {
     unsubs.push(b.listenList(C.NOTIFICATIONS, { where: [['audience', '==', 'admins']], orderBy: [['createdAt', 'desc']], limit: 20 },
       (items) => { broadcast = items; emitAll(); }, () => {}));
   }

@@ -41,10 +41,12 @@ export const TRANSITIONS = Object.freeze({
 export const MARK_ENTRY_STATES = Object.freeze([S.READY, S.IN_PROGRESS]);
 
 export function canTransition(from, to, role) {
+  role = role === 'principal' ? 'super_admin' : role; // a principal has the Super Admin's rights
   return (TRANSITIONS[from] ?? []).some((t) => t.to === to && t.roles.includes(role));
 }
 
 export function nextStates(from, role) {
+  role = role === 'principal' ? 'super_admin' : role;
   return (TRANSITIONS[from] ?? []).filter((t) => t.roles.includes(role));
 }
 

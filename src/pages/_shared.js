@@ -1,5 +1,6 @@
 /** Small helpers shared by pages. */
 import { getState } from '../core/store.js';
+import { isAdminProfile, isAdminRole } from '../auth/roles.js';
 import { L } from '../i18n/index.js';
 import { toast } from '../ui/components/toast.js';
 
@@ -9,7 +10,7 @@ export function actor() {
   return { id: p.id, role: p.role, displayName: p.displayName };
 }
 
-export function isAdmin() { const p = getState().profile; return p?.status === 'active' && p.role === 'super_admin'; }
+export function isAdmin() { return isAdminProfile(getState().profile); }
 
 export function byId(list) { return Object.fromEntries((list ?? []).map((x) => [x.id, x])); }
 
@@ -40,5 +41,5 @@ export function friendlyError(e) {
 }
 
 export function sessionLink(s, role = 'super_admin') {
-  return role === 'super_admin' ? `#/admin/sheet?sid=${encodeURIComponent(s.id)}` : `#/teacher/exam?sid=${encodeURIComponent(s.id)}`;
+  return isAdminRole(role) ? `#/admin/sheet?sid=${encodeURIComponent(s.id)}` : `#/teacher/exam?sid=${encodeURIComponent(s.id)}`;
 }

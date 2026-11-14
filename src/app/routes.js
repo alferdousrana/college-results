@@ -2,10 +2,12 @@
  * Route table. `access`:
  *   public  — anyone          signed-in — any signed-in account (incl. pending)
  *   staff   — any ACTIVE account (pages check finer permissions, e.g. subject assignment)
- *   admin   — active super_admin      teacher — active teacher
+ *   admin   — active super_admin or principal      teacher — active teacher
+ *   overview — view-only college overview (teachers, administrators)
+ *   students-view — student list: editors (students right) see buttons, viewers only read
  * Guards only decide what to render; Firestore rules decide what data can be read or written.
  */
-const A = ['super_admin'];
+const A = ['super_admin', 'principal'];
 export const ROUTES = [
   { path: '/', access: 'public', load: () => import('../pages/home-redirect.js') },
   { path: '/lookup', access: 'public', load: () => import('../pages/result-lookup.js'), nav: 'nav.lookup', icon: 'search', navFor: ['public'] },
@@ -20,9 +22,10 @@ export const ROUTES = [
   { path: '/admin/sheet', access: 'admin', load: () => import('../pages/admin/sheet-detail.js') },
   { path: '/admin/routines', access: 'admin', load: () => import('../pages/admin/routines.js'), nav: 'nav.routines', icon: 'sheet', navFor: A },
   // Students: the Super Admin, plus teachers/staff given the "students" right (navGrant).
-  { path: '/admin/students', access: 'students', load: () => import('../pages/admin/students.js'), nav: 'nav.students', icon: 'users', navFor: A, navGrant: 'students' },
+  { path: '/admin/students', access: 'students-view', load: () => import('../pages/admin/students.js'), nav: 'nav.students', icon: 'users', navFor: [...A, 'teacher', 'administrator'], navGrant: 'students', navRank: { teacher: 60, administrator: 60 } },
   { path: '/admin/students/import', access: 'students', load: () => import('../pages/admin/student-import.js') },
   { path: '/admin/teachers', access: 'admin', load: () => import('../pages/admin/teachers.js'), nav: 'nav.teachers', icon: 'users', navFor: A },
+  { path: '/admin/administrators', access: 'admin', load: () => import('../pages/admin/administrators.js'), nav: 'nav.administrators', icon: 'users', navFor: A },
   { path: '/admin/staff', access: 'admin', load: () => import('../pages/admin/staff.js'), nav: 'nav.staff', icon: 'users', navFor: A },
   { path: '/admin/classes', access: 'admin', load: () => import('../pages/admin/classes.js'), nav: 'nav.classes', icon: 'book', navFor: A },
   { path: '/admin/subjects', access: 'admin', load: () => import('../pages/admin/subjects.js'), nav: 'nav.subjects', icon: 'book', navFor: A },
@@ -32,13 +35,14 @@ export const ROUTES = [
 
   { path: '/staff', access: 'staff-home', load: () => import('../pages/staff-home.js'), nav: 'nav.home', icon: 'home', navFor: ['staff'] },
   { path: '/teacher', access: 'teacher', load: () => import('../pages/teacher/dashboard.js'), nav: 'nav.markEntry', icon: 'edit', navFor: ['teacher'] },
+  { path: '/overview', access: 'overview', load: () => import('../pages/overview.js'), nav: 'nav.overview', icon: 'home', navFor: ['teacher', 'administrator'] },
   { path: '/teacher/exam', access: 'teacher', load: () => import('../pages/teacher/exam.js') },
   { path: '/teacher/history', access: 'teacher', load: () => import('../pages/teacher/history.js'), nav: 'nav.history', icon: 'sheet', navFor: ['teacher'] },
 
   { path: '/marks', access: 'staff', load: () => import('../pages/mark-entry.js') },
   { path: '/results', access: 'staff', load: () => import('../pages/results-view.js') },
 
-  { path: '/settings', access: 'public', load: () => import('../pages/settings.js'), nav: 'nav.settings', icon: 'settings', navFor: ['public', 'super_admin', 'teacher', 'staff'] },
+  { path: '/settings', access: 'public', load: () => import('../pages/settings.js'), nav: 'nav.settings', icon: 'settings', navFor: ['public', 'super_admin', 'principal', 'administrator', 'teacher', 'staff'], navRank: 90 },
   { path: '/print-preview', access: 'public', devOnly: true, load: () => import('../pages/print-preview.js') },
 ];
 

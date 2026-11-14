@@ -11,8 +11,11 @@ import { actor, friendlyError, nameOf, run } from '../_shared.js';
 import { openStudentForm } from './student-form.js';
 import { fmtDate, fmtNum } from '../../ui/format.js';
 import { getState } from '../../core/store.js';
+import { isAdminProfile, hasGrant, Grant } from '../../auth/roles.js';
 
-const isAdminUser = () => getState().profile?.role === 'super_admin';
+const isAdminUser = () => isAdminProfile(getState().profile);
+// Teachers and administrators without the students right see the list read-only.
+const canEdit = () => hasGrant(getState().profile, Grant.STUDENTS);
 
 export const title = 'nav.students';
 const prefKey = 'crms.students.filter';
@@ -35,7 +38,7 @@ async function init(root, query) {
   let cursor = null;
   const table = dataTable({ rows: [], pageSize: 50, searchKeys: ['nameEn', 'nameBn', (r) => r.current?.roll, 'studentCode'],
     filters: [{ key: 'group', label: tt('Group', 'বিভাগ'), get: (r) => r.current?.groupId ?? '', options: cats.groups.map((g) => ({ value: g.id, label: L(g.name) })) }],
-    empty: tt('No students in this class and year. Add students or import a JSON file.', 'এই শ্রেণি ও বছরে কোনো শিক্ষার্থী নেই। যোগ করুন বা JSON ফাইল ইমপোর্ট করুন।'),
+    empty: canEdit() ? tt('No students in this class and year. Add students or import a JSON file.', 'এই শ্রেণি ও বছরে কোনো শিক্ষার্থী নেই। যোগ করুন বা JSON ফাইল ইমপোর্ট করুন।') : tt('No students in this class and year.', 'এই শ্রেণি ও বছরে কোনো শিক্ষার্থী নেই।'),
     onLoadMore: async () => { const page = await repo.listStudents({ ...sel, status: sel.status || null, limit: 100, after: cursor }); cursor = page.cursor; table.appendRows(page.items, { hasMore: Boolean(cursor) }); return { hasMore: Boolean(cursor) }; },
     columns: [
       { key: 'roll', label: tt('Roll', 'রোল'), sort: (r) => Number(r.current?.roll), render: (r) => fmtNum(r.current?.roll) },
@@ -43,7 +46,7 @@ async function init(root, query) {
       { key: 'group', label: tt('Group', 'বিভাগ'), render: (r) => nameOf(cats.groups, r.current?.groupId) },
       { key: 'studentCode', label: tt('Student ID', 'আইডি') },
       { key: 'status', label: tt('Status', 'অবস্থা'), render: (r) => h('span', { class: `badge badge--${r.status === 'active' ? 'good' : 'neutral'}` }, r.status) },
-      { key: 'a', label: '', render: (r) => h('div', { class: 'row-actions' }, button(tt('Edit', 'সম্পাদনা'), { size: 'sm', onClick: () => openStudentForm({ student: r, cats, fieldDefs, onSaved: reload }) }), statusMenu(r),
+      { key: 'a', label: '', render: (r) => !canEdit() ? null : h('div', { class: 'row-actions' }, button(tt('Edit', 'সম্পাদনা'), { size: 'sm', onClick: () => openStudentForm({ student: r, cats, fieldDefs, onSaved: reload }) }), statusMenu(r),
         !isAdminUser() ? null : button(tt('Delete', 'মুছুন'), { size: 'sm', kind: 'danger-ghost', onClick: async () => {
           if (!(await confirmDialog({ title: tt('Delete {n}?', '{n}-কে মুছবেন?', { n: r.nameEn }), body: tt('Only possible if the student is in no result sheet. Otherwise mark them inactive.', 'শিক্ষার্থী কোনো ফলাফল শিটে না থাকলেই মোছা যাবে। নইলে নিষ্ক্রিয় করুন।'), danger: true, confirmText: tt('Delete', 'মুছুন') }))) return;
           const { deleteStudent } = await import('../../data/repositories/deletion-repository.js');
@@ -59,7 +62,7 @@ async function init(root, query) {
   } }, h('option', { value: '' }, tt('Status…', 'অবস্থা…')), ['active', 'inactive', 'transferred', 'left', 'graduated'].filter((s) => s !== r.status).map((s) => h('option', { value: s }, s)));
 
   async function details(r) {
-    const hist = await repo.getStudentHistory(r.id).catch(() => []);
+    const hist = isAdminUser() ? await repo.getStudentHistory(r.id).catch(() => []) : null;
     const custom = fieldDefs.filter((d) => d.enabled !== false && r.customFields?.[d.key] != null).map((d) => [L(d.label), String(r.customFields[d.key])]);
     openModal({ title: r.nameEn, size: 'l', content: h('div', {},
       keyValue([[tt('Bangla name', 'বাংলা নাম'), r.nameBn], [tt('Student ID', 'শিক্ষার্থী আইডি'), r.studentCode], [tt("Father's name", 'পিতার নাম'), r.fatherName], [tt("Mother's name", 'মাতার নাম'), r.motherName],
@@ -67,8 +70,8 @@ async function init(root, query) {
         [tt('Subjects chosen', 'বাছাই করা বিষয়'), (r.current?.subjectIds ?? []).filter((id) => id !== r.current?.optionalSubjectId).map((id) => nameOf(cats.subjects, id)).join(', ') || '—'],
         [tt('4th subject', '৪র্থ বিষয়'), r.current?.optionalSubjectId ? nameOf(cats.subjects, r.current.optionalSubjectId) : '—'],
         ...custom]),
-      h('h3', {}, tt('Published results', 'প্রকাশিত ফলাফল')),
-      hist.length ? h('table', { class: 'mini-table' }, h('tbody', {}, hist.map((x) => h('tr', {}, h('td', {}, L(x.title)), h('td', {}, `${tt('Roll', 'রোল')} ${x.roll}`), h('td', {}, `GPA ${fmtNum(x.gpa, 2)} (${x.grade})`), h('td', {}, fmtDate(x.publishedAt)),
+      hist === null ? null : h('h3', {}, tt('Published results', 'প্রকাশিত ফলাফল')),
+      hist === null ? null : hist.length ? h('table', { class: 'mini-table' }, h('tbody', {}, hist.map((x) => h('tr', {}, h('td', {}, L(x.title)), h('td', {}, `${tt('Roll', 'রোল')} ${x.roll}`), h('td', {}, `GPA ${fmtNum(x.gpa, 2)} (${x.grade})`), h('td', {}, fmtDate(x.publishedAt)),
         h('td', {}, h('a', { href: `#/results?sid=${encodeURIComponent(x.sessionId)}&student=${encodeURIComponent(r.id)}&group=${encodeURIComponent(x.groupId)}` }, tt('Marksheet', 'মার্কশিট')))))))
         : h('p', { class: 'muted' }, tt('No published results yet.', 'এখনো কোনো প্রকাশিত ফলাফল নেই।'))) });
   }
@@ -97,7 +100,7 @@ async function init(root, query) {
   }
   [yearF, classF, statusF].forEach((x) => x.input.addEventListener('change', reload));
   root.replaceChildren(
-    pageHeader({ title: t('nav.students'), actions: [
+    pageHeader({ title: t('nav.students'), subtitle: canEdit() ? null : tt('View only', 'শুধু দেখার জন্য'), actions: !canEdit() ? [] : [
       linkButton(tt('Import JSON', 'JSON ইমপোর্ট'), '#/admin/students/import', {}),
       button(tt('Add student', 'শিক্ষার্থী যোগ'), { kind: 'primary', icon: 'plus', onClick: () => openStudentForm({ cats, fieldDefs, defaults: { yearId: sel.yearId, classId: sel.classId }, onSaved: reload }) })] }),
     h('div', { class: 'filter-bar' }, yearF.el, classF.el, statusF.el), countsBox, table.el);

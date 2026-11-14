@@ -2,6 +2,7 @@
 import { h } from '../core/dom.js';
 import { t } from '../i18n/index.js';
 import { getState } from '../core/store.js';
+import { isAdminProfile } from '../auth/roles.js';
 import { SETTINGS_SECTIONS } from '../settings/sections.js';
 import { loadingState, errorState } from '../ui/components/states.js';
 import { navigate } from '../app/router.js';
@@ -13,7 +14,7 @@ export function dispose() { disposeEditor?.(); disposeEditor = null; }
 
 export function render({ query }) {
   const { profile } = getState();
-  const isAdmin = profile?.status === 'active' && profile.role === 'super_admin';
+  const isAdmin = isAdminProfile(profile);
   const sections = SETTINGS_SECTIONS().filter((s) => !s.admin || isAdmin);
   const current = sections.find((s) => s.id === query.get('section')) ?? sections[0];
   const panel = h('div', { class: 'settings-panel card' }, loadingState());

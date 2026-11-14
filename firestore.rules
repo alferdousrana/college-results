@@ -4,8 +4,12 @@ rules_version = '2';
 // College Result Management System — Firestore Security Rules (Phase 1 draft)
 // Principles:
 //   * Deny by default. Every allow rule is role + status + lifecycle aware.
-//   * Roles live in users/{uid} and can only be changed by an active super_admin
+//   * Roles live in users/{uid} and can only be changed by an active super_admin or principal
 //     (the first super_admin is created with scripts/bootstrap-admin.mjs via the Admin SDK).
+//   * A principal has every right of the super_admin, except: a principal can never change, disable
+//     or delete a super_admin (or another principal) and cannot create a principal or super_admin.
+//   * Teachers and administrators may READ the college overview (students, active teachers,
+//     published result sheets) but cannot change anything they could not change before.
 //   * Feature flags are NOT authorization; nothing here reads featureFlags.
 //   * Public visitors can only `get` minimal published result documents by unguessable id.
 // Keep validTransition() in sync with src/domain/exam-lifecycle.js (a unit test checks it).
@@ -19,10 +23,14 @@ service cloud.firestore {
     function userPath(u) { return /databases/$(database)/documents/users/$(u); }
     function me() { return get(userPath(uid())).data; }
     function isActive() { return signedIn() && exists(userPath(uid())) && me().status == 'active'; }
-    function isAdmin() { return isActive() && me().role == 'super_admin'; }
+    // Full administrative rights: the Super Admin and the principal (see the users rules for the one difference).
+    function isAdmin() { return isActive() && me().role in ['super_admin', 'principal']; }
+    function isSuper() { return isActive() && me().role == 'super_admin'; }
     function isTeacher() { return isActive() && me().role == 'teacher'; }
-    // Extra right given by the Super Admin to a teacher or staff member: add and edit students (never delete).
-    function canManageStudents() { return isAdmin() || (isActive() && me().role in ['teacher', 'staff'] && me().get('grants', {}).get('students', false) == true); }
+    // View-only access to the college overview (head counts, student list, published result sheets).
+    function isViewer() { return isActive() && me().role in ['super_admin', 'principal', 'teacher', 'administrator']; }
+    // Extra right given by an admin to a teacher, staff member or administrator: add and edit students (never delete).
+    function canManageStudents() { return isAdmin() || (isActive() && me().role in ['teacher', 'staff', 'administrator'] && me().get('grants', {}).get('students', false) == true); }
     function serverTime(field) { return request.resource.data[field] == request.time; }
     function onlyChanges(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
 
@@ -33,6 +41,8 @@ service cloud.firestore {
     }
     function inSession(sid) { return isTeacher() && uid() in session(sid).teacherIds; }
     function assignedTo(sid, subjectId) { return isTeacher() && uid() in sessionSubject(sid, subjectId).teacherIds; }
+    // Published (or archived) result sheets can be read by every viewer.
+    function viewPublished(sid) { return isViewer() && session(sid).state in ['published', 'archived']; }
 
     function validTransition(from, to) {
       return from == to || [from, to] in [
@@ -58,7 +68,9 @@ service cloud.firestore {
 
     // ---------- users & approval ----------
     match /users/{userId} {
-      allow read: if (signedIn() && uid() == userId) || isAdmin();
+      allow read: if (signedIn() && uid() == userId) || isAdmin()
+        // Viewers may see the list of active teachers (for the overview); queries must filter on both fields.
+        || (isViewer() && resource.data.role == 'teacher' && resource.data.status == 'active');
       // Self-registration: always a pending teacher. Nobody can self-assign a role.
       allow create: if signedIn() && uid() == userId
         && request.resource.data.keys().hasOnly(['displayName', 'email', 'phone', 'role', 'status', 'createdAt', 'updatedAt', 'requestNote'])
@@ -66,15 +78,23 @@ service cloud.firestore {
         && request.resource.data.status == 'pending'
         && request.resource.data.email == request.auth.token.email
         && serverTime('createdAt')
-        // …or an administrator creates an already-approved teacher account.
-        || (isAdmin() && request.resource.data.role in ['teacher', 'staff'] && request.resource.data.status == 'active'
-            && request.resource.data.approvedBy == uid());
+        // …or an admin creates an already-approved account. Only the Super Admin creates a principal.
+        || (isAdmin() && request.resource.data.status == 'active' && request.resource.data.approvedBy == uid()
+            && (request.resource.data.role in ['teacher', 'staff', 'administrator']
+                || (isSuper() && request.resource.data.role == 'principal')));
       // Owners may edit harmless profile fields only.
       allow update: if (signedIn() && uid() == userId && onlyChanges(['displayName', 'phone', 'prefs', 'updatedAt']))
-        || (isAdmin() && request.resource.data.role in ['teacher', 'staff', 'super_admin']
+        // The Super Admin may change any account.
+        || (isSuper() && request.resource.data.role in ['teacher', 'staff', 'administrator', 'principal', 'super_admin']
+            && request.resource.data.status in ['pending', 'active', 'rejected', 'disabled'])
+        // A principal may change teachers, staff and administrators only — never a Super Admin or a principal.
+        || (isAdmin() && resource.data.role in ['teacher', 'staff', 'administrator']
+            && request.resource.data.role in ['teacher', 'staff', 'administrator']
             && request.resource.data.status in ['pending', 'active', 'rejected', 'disabled']);
-      // Only teacher profiles with no history (checked by the app) — never your own, never an admin.
-      allow delete: if isAdmin() && userId != uid() && resource.data.role in ['teacher', 'staff'];
+      // Teacher/staff/administrator profiles with no history (checked by the app) — never your own,
+      // never a Super Admin; a principal can be removed only by the Super Admin.
+      allow delete: if isAdmin() && userId != uid()
+        && (resource.data.role in ['teacher', 'staff', 'administrator'] || (isSuper() && resource.data.role == 'principal'));
     }
 
     // ---------- institution, settings, catalogue ----------
@@ -99,7 +119,8 @@ service cloud.firestore {
 
     // ---------- students (private records: admin only) ----------
     match /students/{studentId} {
-      allow read, create, update: if canManageStudents();
+      allow read: if canManageStudents() || isViewer();   // viewers: read only
+      allow create, update: if canManageStudents();
       allow delete: if isAdmin();
       // Per-student summary of published results (written at publication).
       match /publishedResults/{sessionId} { allow read, write: if isAdmin(); }
@@ -114,7 +135,8 @@ service cloud.firestore {
     // ---------- examination sessions ----------
     // Doc id `${yearId}__${classId}__${examDefId}` prevents duplicate sessions.
     match /examSessions/{sid} {
-      allow read: if isAdmin() || (isTeacher() && uid() in resource.data.teacherIds);
+      allow read: if isAdmin() || (isTeacher() && uid() in resource.data.teacherIds)
+        || (isViewer() && resource.data.state in ['published', 'archived']);
       allow create: if isAdmin()
         && sid == request.resource.data.yearId + '__' + request.resource.data.classId + '__' + request.resource.data.examDefId
         && request.resource.data.state == 'draft';
@@ -127,12 +149,12 @@ service cloud.firestore {
       allow delete: if isAdmin() && (resource.data.state == 'draft' || resource.data.get('deleting', null) != null);
 
       match /sheets/{groupId} {
-        allow read: if isAdmin() || inSession(sid);
+        allow read: if isAdmin() || inSession(sid) || viewPublished(sid);
         allow write: if isAdmin() && (session(sid).state in ['draft', 'ready_for_mark_entry'] || beingDeleted(sid));
       }
 
       match /sessionSubjects/{subjectId} {
-        allow read: if isAdmin() || inSession(sid);
+        allow read: if isAdmin() || inSession(sid) || viewPublished(sid);
         allow write: if isAdmin() && (!(session(sid).state in ['published', 'archived']) || beingDeleted(sid));
         // Assigned teacher may mark their own subject as submitted / unsubmit while entry is open.
         allow update: if assignedTo(sid, subjectId) && markEntryOpen(sid)
@@ -155,11 +177,11 @@ service cloud.firestore {
       }
 
       match /enrollments/{studentId} {
-        allow read: if isAdmin() || inSession(sid);
+        allow read: if isAdmin() || inSession(sid) || viewPublished(sid);
         allow write: if isAdmin() && (!(session(sid).state in ['published', 'archived']) || beingDeleted(sid));
       }
       match /results/{studentId} {
-        allow read: if isAdmin() || (inSession(sid) && session(sid).state in ['published', 'archived']);
+        allow read: if isAdmin() || viewPublished(sid);
         allow write: if isAdmin() && (session(sid).state in ['submitted', 'under_review'] || beingDeleted(sid));
       }
       match /publications/{pubId} {
@@ -196,6 +218,20 @@ service cloud.firestore {
     }
     match /publicExamIndex/{publicSessionId} {
       allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // ---------- notices on the public page ----------
+    // notices/{id}: title, text, date, optional link; visible to everyone once `published` is true
+    // (public queries must filter published == true). The PDF of a notice is a separate document
+    // noticeFiles/{id} (data URL, under 1 MB) that can be fetched by id but not listed.
+    match /notices/{noticeId} {
+      allow read: if resource.data.published == true || isAdmin();
+      allow write: if isAdmin();
+    }
+    match /noticeFiles/{noticeId} {
+      allow get: if true;
+      allow list: if isAdmin();
       allow write: if isAdmin();
     }
 

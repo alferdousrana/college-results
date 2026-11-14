@@ -3,6 +3,7 @@
  * until publication). Every edit is stored in the device outbox first, then sent in a transaction
  * that refuses to overwrite a newer server value (see offline/offline-queue.js).
  */
+import { isAdminRole } from '../auth/roles.js';
 import { h } from '../core/dom.js';
 import { t, tt, L, formatNumber } from '../i18n/index.js';
 import { getState } from '../core/store.js';
@@ -44,7 +45,7 @@ async function init(sid, subjectId, root) {
     import('../data/repositories/sessions-repository.js'), import('../data/repositories/marks-repository.js'), import('../data/repositories/settings-repository.js')]);
   const bundle = await loadSessionBundle(sid);
   const subject = bundle.subjects.find((s) => s.id === subjectId);
-  const isAdminUser = me.role === 'super_admin';
+  const isAdminUser = isAdminRole(me.role);
   if (!subject || (!isAdminUser && !(subject.teacherIds ?? []).includes(me.id))) {
     root.replaceChildren(errorState({ message: tt('This subject is not assigned to you.', 'এই বিষয়টি আপনাকে দেওয়া হয়নি।') }));
     return;

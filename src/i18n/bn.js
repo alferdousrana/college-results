@@ -22,6 +22,8 @@ export default {
   'nav.archive': 'ফলাফল আর্কাইভ',
   'nav.audit': 'অডিট লগ',
   'nav.history': 'পূর্ববর্তী পরীক্ষা',
+  'nav.overview': 'সার্বিক চিত্র',
+  'nav.administrators': 'প্রশাসন',
   'nav.search': 'খুঁজুন',
   'auth.errorTooMany': 'অনেকবার চেষ্টা হয়েছে। কয়েক মিনিট পর আবার চেষ্টা করুন।',
 

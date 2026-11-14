@@ -11,6 +11,9 @@ import { loadingState } from '../components/states.js';
 import { notificationBell } from '../components/notification-bell.js';
 import { demoBanner } from '../components/demo-banner.js';
 import { AccountStatus } from '../../auth/roles.js';
+
+/** Optional order of a navigation item: a number, or { role: number } for one role only (default 50). */
+const navRank = (r, role) => (typeof r.navRank === 'object' ? r.navRank?.[role] : r.navRank) ?? 50;
 import { openModal } from '../components/modal.js';
 
 let frame = null;
@@ -20,7 +23,8 @@ let bell = null;
 function navItems() {
   const { profile, authUser } = getState();
   const key = authUser && profile?.status === AccountStatus.ACTIVE ? profile.role : 'public';
-  return ROUTES.filter((r) => r.nav && (r.navFor?.includes(key) || (key !== 'public' && r.navGrant && profile?.grants?.[r.navGrant] === true)));
+  return ROUTES.filter((r) => r.nav && (r.navFor?.includes(key) || (key !== 'public' && r.navGrant && profile?.grants?.[r.navGrant] === true)))
+    .map((r, i) => [r, i]).sort((a, b) => navRank(a[0], key) - navRank(b[0], key) || a[1] - b[1]).map(([r]) => r);
 }
 
 function buildFrame() {

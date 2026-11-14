@@ -102,3 +102,10 @@ Publishing stores a calculation snapshot (`domain/calculation/snapshot.js`) — 
 
 * `examSessions/{id}.markEntryDeadline` (timestamp): rules allow teachers' mark writes only while `request.time` is before it.
 * `routines/{id}`: also `duties { dayId: { teacherIds, staffIds } }`, `committee [{ name, designation }]`, `dutyPrefix`, `admit { validUntil, sentence }`, `seat { perPage, fields }`.
+
+
+## Round 6 additions
+* `users/{uid}.role` may also be `principal` or `administrator` (plus optional `designation`, `order`).
+* `institution/public.about` — `{ founder{en,bn}, established, bio{en,bn}, principalName{en,bn}, principalTitle{en,bn}, countMode: 'auto'|'manual'|'hidden', studentCount, teacherCount }`; `institution/public.assets.principalPhoto` (data URL).
+* `notices/{id}` — `{ title{en,bn}, body{en,bn}, date 'YYYY-MM-DD', link|null, pinned, published, file: {name,size}|null, createdAt, updatedAt }`. Public read when `published == true`; admin write.
+* `noticeFiles/{id}` — `{ data: 'data:application/pdf;base64,…', name, size }`. Public `get` by id, no `list`; admin write.

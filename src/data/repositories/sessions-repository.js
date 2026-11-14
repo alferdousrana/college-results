@@ -7,7 +7,7 @@
  */
 import { getBackend } from '../backend/index.js';
 import { C, ids, paths } from '../paths.js';
-import { serverTime } from '../field-ops.js';
+import { serverTime, toMillis } from '../field-ops.js';
 import { addAudit, AuditAction } from './audit-repository.js';
 import { notify } from './notifications-repository.js';
 import { ExamState, canTransition } from '../../domain/exam-lifecycle.js';
@@ -35,6 +35,17 @@ export async function listSessions({ yearId = null, state = null, limit = 50 } =
   if (yearId) where.push(['yearId', '==', yearId]);
   if (state) where.push(Array.isArray(state) ? ['state', 'in', state] : ['state', '==', state]);
   return (await b.list(C.SESSIONS, { where, orderBy: [['updatedAt', 'desc']], limit })).items;
+}
+
+/**
+ * Published and archived result sheets, newest first. Two equality queries (no composite index
+ * needed) whose filters match the rules for view-only roles (teachers and administrators).
+ */
+export async function listPublishedSessions(max = 200) {
+  const b = await getBackend();
+  const lists = await Promise.all(['published', 'archived'].map((state) => b.list(C.SESSIONS, { where: [['state', '==', state]], limit: max }).then((r) => r.items)));
+  const ms = (v) => toMillis(v) ?? 0;
+  return lists.flat().sort((x, y) => ms(y.publishedAt ?? y.updatedAt) - ms(x.publishedAt ?? x.updatedAt));
 }
 
 export async function listTeacherSessions(teacherId, max = 50) {

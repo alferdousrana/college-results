@@ -8,6 +8,8 @@ import { serverTime } from '../data/field-ops.js';
 export const DEMO_ADMIN = { id: 'demo-admin', role: 'super_admin', displayName: 'Demo Administrator' };
 export const DEMO_PERSONAS = [
   { id: 'demo-admin', label: 'Demo Administrator (Super Admin)' },
+  { id: 'demo-principal', label: 'Demo Principal — all rights except the Super Admin account' },
+  { id: 'demo-office', label: 'Office administrator — view only' },
   { id: 'demo-t-bangla', label: 'Rahima Begum — Bangla, English' },
   { id: 'demo-t-science', label: 'Kamal Hossain — Physics, Chemistry, Higher Math' },
   { id: 'demo-t-bio', label: 'Nasrin Akter — Biology, ICT, Agriculture' },
@@ -59,18 +61,29 @@ export async function ensureDemoSeed(backend) {
   w.set(`${C.INSTITUTION}/public`, {
     name: { en: 'Demo Model School & College', bn: 'ডেমো মডেল স্কুল অ্যান্ড কলেজ' },
     address: { en: 'College Road, Demo Town', bn: 'কলেজ রোড, ডেমো টাউন' }, phone: '01700-000000', email: 'office@demo.invalid', website: '', eiin: '000000',
-    header: { en: '', bn: '' }, footer: { en: 'This is a demonstration marksheet.', bn: 'এটি একটি নমুনা মার্কশিট।' },
+    header: { en: 'Education Peace Progress', bn: 'শিক্ষা শান্তি প্রগতি' }, footer: { en: 'This is a demonstration marksheet.', bn: 'এটি একটি নমুনা মার্কশিট।' },
     signatories: {
       principal: { name: { en: 'Demo Principal', bn: 'ডেমো অধ্যক্ষ' }, title: { en: 'Principal', bn: 'অধ্যক্ষ' } },
       committee: { name: { en: 'Demo Convener', bn: 'ডেমো আহ্বায়ক' }, title: { en: 'Convener, Examination Committee', bn: 'আহ্বায়ক, পরীক্ষা কমিটি' } },
       classTeacher: { name: { en: '', bn: '' }, title: { en: 'Class Teacher', bn: 'শ্রেণি শিক্ষক' } },
     },
     assets: {},
+    landing: { title: { en: '', bn: '' }, description: { en: 'Results, notices and information for students and guardians.', bn: 'শিক্ষার্থী ও অভিভাবকদের জন্য ফলাফল, নোটিশ ও তথ্য।' } },
+    about: {
+      founder: { en: 'Late Abdul Hamid', bn: 'মরহুম আব্দুল হামিদ' }, established: '1994',
+      bio: { en: 'Demo Model School & College was founded to bring higher secondary education to the girls of the area. Today it teaches Science, Humanities and Business Studies.\n\nThis text is demonstration content.',
+        bn: 'এলাকার মেয়েদের কাছে উচ্চমাধ্যমিক শিক্ষা পৌঁছে দিতে ডেমো মডেল স্কুল অ্যান্ড কলেজ প্রতিষ্ঠিত হয়। বর্তমানে এখানে বিজ্ঞান, মানবিক ও ব্যবসায় শিক্ষা বিভাগে পাঠদান করা হয়।\n\nএটি নমুনা লেখা।' },
+      principalName: { en: '', bn: '' }, countMode: 'auto', studentCount: 24, teacherCount: 4,
+    },
   });
+  w.set(`${C.NOTICES}/demo-n1`, { title: { en: 'Half-yearly examination results published', bn: 'অর্ধবার্ষিক পরীক্ষার ফলাফল প্রকাশিত' }, body: { en: 'Students can see their results on this page with their roll number.', bn: 'শিক্ষার্থীরা রোল নম্বর দিয়ে এই পেজে ফলাফল দেখতে পারবে।' }, date: new Date().toISOString().slice(0, 10), link: null, pinned: true, published: true, file: null, createdAt: now, updatedAt: now });
+  w.set(`${C.NOTICES}/demo-n2`, { title: { en: 'Form fill-up for the test examination', bn: 'নির্বাচনী পরীক্ষার ফরম পূরণ' }, body: { en: 'Form fill-up runs from the 1st to the 10th of next month in the college office.', bn: 'আগামী মাসের ১ থেকে ১০ তারিখ পর্যন্ত কলেজ অফিসে ফরম পূরণ চলবে।' }, date: '2026-01-15', link: null, pinned: false, published: true, file: null, createdAt: now, updatedAt: now });
+  w.set(`${C.NOTICES}/demo-n3`, { title: { en: 'Draft notice (hidden)', bn: 'খসড়া নোটিশ (লুকানো)' }, body: { en: '', bn: '' }, date: '2026-01-20', link: null, pinned: false, published: false, file: null, createdAt: now, updatedAt: now });
   const users = [
     ['demo-admin', 'Demo Administrator', 'super_admin', 'active'], ['demo-t-bangla', 'Rahima Begum', 'teacher', 'active'],
     ['demo-t-science', 'Kamal Hossain', 'teacher', 'active'], ['demo-t-bio', 'Nasrin Akter', 'teacher', 'active'],
     ['demo-t-hum', 'Abdur Rahman', 'teacher', 'active'], ['demo-t-pending', 'Sumon Das', 'teacher', 'pending'],
+    ['demo-principal', 'Demo Principal', 'principal', 'active'], ['demo-office', 'Office Administrator', 'administrator', 'active'],
   ];
   users.forEach(([id, name, role, status], i) => w.set(paths.user(id), { displayName: name, email: `${id}@demo.invalid`, role, status, phone: null, requestNote: status === 'pending' ? 'I teach Bangla in classes 9 and 10.' : null, createdAt: Date.now() - (10 - i) * 86400000, updatedAt: now }));
   w.set(`${C.YEARS}/2025`, { label: '2025', order: 2025, active: false });
